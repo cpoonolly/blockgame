@@ -4,10 +4,29 @@
 		<script src="wasm_exec.js"></script>
 		<script>
 			const go = new Go();
-			WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject).then((result) => {
+			WebAssembly.instantiateStreaming(fetch("bundle.wasm"), go.importObject).then((result) => {
 				go.run(result.instance);
 			});
-		</script>
+    </script>
+    <style>
+      body, pre {
+        margin: 0;
+        padding: 0;
+      }
+
+      #canvas_main {
+        position:fixed;
+        opacity:1.0;
+        width: 100%;
+        height:100%;
+        top:0;
+        right:0;
+        bottom:0;
+        left:0;
+      }
+    </style>
 	</head>
-	<body></body>
+	<body>
+    <canvas id="canvas_main"></canvas>
+  </body>
 </html>
