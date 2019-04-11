@@ -3,9 +3,9 @@
 		<meta charset="utf-8">
 		<script src="wasm_exec.js"></script>
 		<script>
-			const go = new Go();
+      const go = new Go();
 			WebAssembly.instantiateStreaming(fetch("bundle.wasm"), go.importObject).then((result) => {
-				go.run(result.instance);
+        go.run(result.instance);
 			});
     </script>
     <style>
