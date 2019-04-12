@@ -31,25 +31,35 @@ func main() {
 
 	vertShaderCode := `
 		attribute vec3 position;
+		attribute vec3 normal;
 
 		uniform mat4 pMatrix;
-		uniform mat4 vMatrix;
-		uniform mat4 mMatrix;
+		uniform mat4 mvMatrix;
+		uniform mat4 normMatrix;
 		uniform vec4 color;
 
+		varying highp vec3 vLighting;
 		varying highp vec3 vColor;
 
 		void main(void) {
-			gl_Position = pMatrix * vMatrix * mMatrix * vec4(position, 1.);
+			gl_Position = pMatrix * mvMatrix * vec4(position, 1.);
+
+			highp vec3 ambientLight = vec3(0.3, 0.3, 0.3);
+      highp vec3 directionalLightColor = vec3(1, 1, 1);
+			highp vec3 directionalVector = normalize(vec3(0.85, 0.8, 0.75));
+			highp vec4 transformedNormal = normMatrix * vec4(normal, 1.0);
+			highp float directional = max(dot(transformedNormal.xyz, directionalVector), 0.0);
+			vLighting = ambientLight + (directionalLightColor * directional);
 
 			vColor = color.rgb;
 		}	
 	`
 	fragShaderCode := `
+		varying highp vec3 vLighting;
 		varying highp vec3 vColor;
 
 		void main(void) {
-			gl_FragColor = vec4(vColor, 1.);
+			gl_FragColor = vec4(vColor * vLighting, 1.);
 		}
 	`
 	shader, err = gl.NewShaderProgram(vertShaderCode, fragShaderCode)
@@ -59,18 +69,98 @@ func main() {
 	}
 
 	verticies := []float32{
-		-1, -1, -1, 1, -1, -1, 1, 1, -1, -1, 1, -1,
-		-1, -1, 1, 1, -1, 1, 1, 1, 1, -1, 1, 1,
-		-1, -1, -1, -1, 1, -1, -1, 1, 1, -1, -1, 1,
-		1, -1, -1, 1, 1, -1, 1, 1, 1, 1, -1, 1,
-		-1, -1, -1, -1, -1, 1, 1, -1, 1, 1, -1, -1,
-		-1, 1, -1, -1, 1, 1, 1, 1, 1, 1, 1, -1,
+		// Front face
+		-1.0, -1.0, 1.0,
+		1.0, -1.0, 1.0,
+		1.0, 1.0, 1.0,
+		-1.0, 1.0, 1.0,
+
+		// Back face
+		-1.0, -1.0, -1.0,
+		-1.0, 1.0, -1.0,
+		1.0, 1.0, -1.0,
+		1.0, -1.0, -1.0,
+
+		// // Top face
+		// -1.0, 1.0, -1.0,
+		// -1.0, 1.0, 1.0,
+		// 1.0, 1.0, 1.0,
+		// 1.0, 1.0, -1.0,
+
+		// // Bottom face
+		// -1.0, -1.0, -1.0,
+		// 1.0, -1.0, -1.0,
+		// 1.0, -1.0, 1.0,
+		// -1.0, -1.0, 1.0,
+
+		// // Right face
+		// 1.0, -1.0, -1.0,
+		// 1.0, 1.0, -1.0,
+		// 1.0, 1.0, 1.0,
+		// 1.0, -1.0, 1.0,
+
+		// // Left face
+		// -1.0, -1.0, -1.0,
+		// -1.0, -1.0, 1.0,
+		// -1.0, 1.0, 1.0,
+		// -1.0, 1.0, -1.0,
 	}
-	normals := []float32{}
+	normals := []float32{
+		// Front
+		0.0, 0.0, 1.0,
+		0.0, 0.0, 1.0,
+		0.0, 0.0, 1.0,
+		0.0, 0.0, 1.0,
+
+		// Back
+		0.0, 0.0, -1.0,
+		0.0, 0.0, -1.0,
+		0.0, 0.0, -1.0,
+		0.0, 0.0, -1.0,
+
+		// // Top
+		// 0.0, 1.0, 0.0,
+		// 0.0, 1.0, 0.0,
+		// 0.0, 1.0, 0.0,
+		// 0.0, 1.0, 0.0,
+
+		// // Bottom
+		// 0.0, -1.0, 0.0,
+		// 0.0, -1.0, 0.0,
+		// 0.0, -1.0, 0.0,
+		// 0.0, -1.0, 0.0,
+
+		// // Right
+		// 1.0, 0.0, 0.0,
+		// 1.0, 0.0, 0.0,
+		// 1.0, 0.0, 0.0,
+		// 1.0, 0.0, 0.0,
+
+		// // Left
+		// -1.0, 0.0, 0.0,
+		// -1.0, 0.0, 0.0,
+		// -1.0, 0.0, 0.0,
+		// -1.0, 0.0, 0.0,
+	}
 	indicies := []uint16{
-		0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7,
-		8, 9, 10, 8, 10, 11, 12, 13, 14, 12, 14, 15,
-		16, 17, 18, 16, 18, 19, 20, 21, 22, 20, 22, 23,
+		// front
+		0, 1, 2,
+		0, 2, 3,
+		// back
+		4, 5, 6,
+		4, 6, 7,
+		// // top
+		// 8, 9, 10,
+		// 8, 10, 11,
+		// // bottom
+		// 12, 13, 14,
+		// 12, 14, 15,
+		// // right
+		// 16, 17, 18,
+		// 16, 18, 19,
+		// // left
+		// 20, 21, 22,
+		// 20, 22, 23,
 	}
 
 	mesh = gl.NewMesh(verticies, normals, indicies)
@@ -78,11 +168,13 @@ func main() {
 	projMatrix := mgl32.Perspective(mgl32.DegToRad(45.0), float32(canvasWidth)/float32(canvasHeight), 0, 1000.0)
 	viewMatrix := mgl32.Ident4()
 	modelMatrix := mgl32.Ident4()
+	modelViewMatrix := mgl32.Ident4()
+	normalMatrix := mgl32.Ident4()
 
 	uniformsMat4f := map[string]js.TypedArray{
-		"pMatrix": js.TypedArrayOf(projMatrix[:]),
-		"vMatrix": js.TypedArrayOf(viewMatrix[:]),
-		"mMatrix": js.TypedArrayOf(modelMatrix[:]),
+		"pMatrix":    js.TypedArrayOf(projMatrix[:]),
+		"mvMatrix":   js.TypedArrayOf(modelViewMatrix[:]),
+		"normMatrix": js.TypedArrayOf(normalMatrix[:]),
 	}
 
 	colorVec := []float32{1.0, 1.0, 1.0, 1.0}
@@ -93,54 +185,22 @@ func main() {
 	var cameraX, cameraY, cameraZ float32
 	var renderFrame, onKeyDown, onKeyUp js.Func
 
-	var isLeftPressed, isRightPressed, isUpPressed, isDownPressed, isCtrlPressed bool
-
+	isKeyDownMap := make(map[string]bool)
 	onKeyDown = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		event := args[0]
 
 		fmt.Printf("key down - code: %s\n", event.Get("code"))
 		keyCode := event.Get("code").String()
-
-		if keyCode == "ArrowLeft" {
-			isLeftPressed = true
-		}
-		if keyCode == "ArrowRight" {
-			isRightPressed = true
-		}
-		if keyCode == "ArrowUp" {
-			isUpPressed = true
-		}
-		if keyCode == "ArrowDown" {
-			isDownPressed = true
-		}
-		if keyCode == "ControlLeft" {
-			isCtrlPressed = true
-		}
+		isKeyDownMap[keyCode] = true
 
 		return nil
 	})
-
 	onKeyUp = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		event := args[0]
 
 		fmt.Printf("key up - code: %s\n", event.Get("code"))
 		keyCode := event.Get("code").String()
-
-		if keyCode == "ArrowLeft" {
-			isLeftPressed = false
-		}
-		if keyCode == "ArrowRight" {
-			isRightPressed = false
-		}
-		if keyCode == "ArrowUp" {
-			isUpPressed = false
-		}
-		if keyCode == "ArrowDown" {
-			isDownPressed = false
-		}
-		if keyCode == "ControlLeft" {
-			isCtrlPressed = false
-		}
+		isKeyDownMap[keyCode] = false
 
 		return nil
 	})
@@ -151,33 +211,35 @@ func main() {
 		dt := now - lastRenderTime
 		lastRenderTime = now
 
-		if isLeftPressed {
-			cameraX -= 0.01
+		if isKeyDownMap["ArrowLeft"] {
+			cameraX -= 0.1
 		}
-		if isRightPressed {
-			cameraX += 0.01
+		if isKeyDownMap["ArrowRight"] {
+			cameraX += 0.1
 		}
 
-		if isCtrlPressed {
-			if isUpPressed {
-				cameraY += 0.01
+		if isKeyDownMap["ControlLeft"] {
+			if isKeyDownMap["ArrowUp"] {
+				cameraY += 0.1
 			}
-			if isDownPressed {
-				cameraY -= 0.01
+			if isKeyDownMap["ArrowDown"] {
+				cameraY -= 0.1
 			}
 		} else {
-			if isUpPressed {
-				cameraZ -= 0.01
+			if isKeyDownMap["ArrowUp"] {
+				cameraZ -= 0.1
 			}
-			if isDownPressed {
-				cameraZ += 0.01
+			if isKeyDownMap["ArrowDown"] {
+				cameraZ += 0.1
 			}
 		}
 
 		gl.DocumentEl.Call("getElementById", "fps_counter").Set("innerHTML", fmt.Sprintf("FPS: %f", 1000.0/dt))
 
-		viewMatrix = mgl32.LookAtV(mgl32.Vec3{3.0 + cameraX, 3.0 + cameraY, 3.0 + cameraZ}, mgl32.Vec3{0.0, 0.0, 0.0}, mgl32.Vec3{0.0, 1.0, 0.0})
+		viewMatrix = mgl32.LookAtV(mgl32.Vec3{0.0 + cameraX, 0.0 + cameraY, -6.0 + cameraZ}, mgl32.Vec3{0.0, 0.0, 0.0}, mgl32.Vec3{0.0, 1.0, 0.0})
 		modelMatrix = mgl32.Ident4()
+		modelViewMatrix = viewMatrix.Mul4(modelMatrix)
+		normalMatrix = modelViewMatrix.Inv().Transpose()
 
 		gl.ClearScreen()
 		gl.Render(mesh, shader, uniformsMat4f, uniformVec4f)

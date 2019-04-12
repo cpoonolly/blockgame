@@ -117,9 +117,9 @@ func (gl *Context) Render(
 	gl.ctx.Call("enableVertexAttribArray", 0)
 
 	// bind normal attribute
-	// gl.ctx.Call("bindBuffer", gl.constants.arrayBuffer, mesh.normalBufferID)
-	// gl.ctx.Call("vertexAttribPointer", 1, 3, gl.constants.float, false, 0, 0)
-	// gl.ctx.Call("enableVertexAttribArray", 1)
+	gl.ctx.Call("bindBuffer", gl.constants.arrayBuffer, mesh.normalBufferID)
+	gl.ctx.Call("vertexAttribPointer", 1, 3, gl.constants.float, false, 0, 0)
+	gl.ctx.Call("enableVertexAttribArray", 1)
 
 	gl.ctx.Call("drawElements", gl.constants.triangles, mesh.size, gl.constants.unsignedShort, 0)
 
@@ -170,11 +170,9 @@ func (gl *Context) NewShaderProgram(vertCode string, fragCode string) (*ShaderPr
 		return nil, fmt.Errorf("all vertex shaders MUST have 'position' as it's first attribute")
 	}
 
-	/*
-		if gl.ctx.Call("getAttribLocation", programID, "normal").Int() != 1 {
-			return nil, fmt.Errorf("all vertex shaders MUST have 'normal' as it's second attribute")
-		}
-	*/
+	if gl.ctx.Call("getAttribLocation", programID, "normal").Int() != 1 {
+		return nil, fmt.Errorf("all vertex shaders MUST have 'normal' as it's second attribute")
+	}
 
 	program := new(ShaderProgram)
 	program.gl = gl
