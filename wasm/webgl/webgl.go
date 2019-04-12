@@ -2,6 +2,7 @@ package webgl
 
 import (
 	"fmt"
+	"github.com/cpoonolly/blockgame/core"
 	"syscall/js"
 )
 
@@ -10,6 +11,8 @@ type Context struct {
 	DocumentEl js.Value
 	CanvasEl   js.Value
 	ctx        js.Value
+	width      int
+	height     int
 
 	constants struct {
 		vertexShader       js.Value
@@ -69,40 +72,60 @@ func New(canvasID string) (*Context, error) {
 
 	// do some initialization for stuff we know we'll need for the block game
 	body := gl.DocumentEl.Get("body")
-	width := body.Get("clientWidth").Int()
-	height := body.Get("clientHeight").Int()
-	gl.ctx.Call("viewport", 0, 0, width, height)
+	gl.width = body.Get("clientWidth").Int()
+	gl.height = body.Get("clientHeight").Int()
+
+	gl.ctx.Call("viewport", 0, 0, gl.width, gl.height)
+	gl.CanvasEl.Set("width", gl.width)
+	gl.CanvasEl.Set("height", gl.height)
 
 	return gl, nil
 }
 
+// GetViewportWidth gets the viewport width
+func (gl *Context) GetViewportWidth() int {
+	return gl.width
+}
+
+// GetViewportHeight gets the viewport height
+func (gl *Context) GetViewportHeight() int {
+	return gl.height
+}
+
 // ClearScreen clears the canvas to white
-func (gl *Context) ClearScreen() {
+func (gl *Context) ClearScreen() error {
 	gl.ctx.Call("clearColor", 0.0, 0.0, 0.0, 0.9)
 	gl.ctx.Call("clearDepth", 1.0)
 	gl.ctx.Call("enable", gl.constants.depthTest)
 	gl.ctx.Call("depthFunc", gl.constants.lEqual)
 	gl.ctx.Call("clear", gl.constants.colorBufferBit)
 	gl.ctx.Call("clear", gl.constants.depthBufferBit)
+
+	return nil
 }
 
 // Render renders the given mesh with the shader
-func (gl *Context) Render(
-	mesh *Mesh,
-	program *ShaderProgram,
-	uniformsMat4f map[string]js.TypedArray,
-	uniformsVec4f map[string]js.TypedArray,
-) {
+func (gl *Context) Render(coreMesh core.Mesh, coreProgram core.ShaderProgram) error {
+	mesh, isWebGlMesh := coreMesh.(*Mesh)
+	if !isWebGlMesh {
+		return fmt.Errorf("invalid mesh passed to this gl context. must be a webgl.Mesh")
+	}
+
+	program, isWebGlProgram := coreProgram.(*ShaderProgram)
+	if !isWebGlProgram {
+		return fmt.Errorf("invalid shader passed to this gl context. must be a webgl.ShaderProgram")
+	}
+
 	gl.ctx.Call("useProgram", program.programID)
 
 	// bind all mat4f uniforms
-	for uniformName, uniformVal := range uniformsMat4f {
+	for uniformName, uniformVal := range program.uniformsMat4f {
 		uniformLoc := gl.ctx.Call("getUniformLocation", program.programID, uniformName)
 		gl.ctx.Call("uniformMatrix4fv", uniformLoc, false, uniformVal)
 	}
 
 	// bind all vec4f uniforms
-	for uniformName, uniformVal := range uniformsVec4f {
+	for uniformName, uniformVal := range program.uniformsVec4f {
 		uniformLoc := gl.ctx.Call("getUniformLocation", program.programID, uniformName)
 		gl.ctx.Call("uniform4fv", uniformLoc, uniformVal)
 	}
@@ -122,7 +145,7 @@ func (gl *Context) Render(
 
 	gl.ctx.Call("drawElements", gl.constants.triangles, mesh.size, gl.constants.unsignedShort, 0)
 
-	return
+	return nil
 }
 
 // ShaderProgram a struct for managing a shader program
@@ -131,17 +154,27 @@ type ShaderProgram struct {
 	vertShaderID js.Value
 	fragShaderID js.Value
 	programID    js.Value
+
+	uniformsMat4f map[string]js.TypedArray
+	uniformsVec4f map[string]js.TypedArray
 }
 
 // NewShaderProgram links, compiles & registers a shader program using the given vertex & fragment shader
-func (gl *Context) NewShaderProgram(vertCode string, fragCode string) (*ShaderProgram, error) {
+func (gl *Context) NewShaderProgram(
+	vertCode string,
+	fragCode string,
+	uniformsMat4f map[string][]float32,
+	uniformsVec4f map[string][]float32,
+) (core.ShaderProgram, error) {
+
+	// TODO should defer gl.ctx.Call("deleteShader", vertShaderID) on failure
+	// TODO should defer gl.ctx.Call("deleteShader", fragShaderID) on failure
+
 	vertShaderID := gl.ctx.Call("createShader", gl.constants.vertexShader)
 	gl.ctx.Call("shaderSource", vertShaderID, vertCode)
 	gl.ctx.Call("compileShader", vertShaderID)
 
 	if compileStatusOk := gl.ctx.Call("getShaderParameter", vertShaderID, gl.constants.compileStatus).Truthy(); !compileStatusOk {
-		// defer gl.ctx.Call("deleteShader", vertShaderID)
-		js.Global().Call("showShaderCompileError", vertShaderID)
 		return nil, fmt.Errorf("failed to compile vert shader: %s", gl.ctx.Call("getShaderInfoLog", vertShaderID).String())
 	}
 
@@ -150,8 +183,6 @@ func (gl *Context) NewShaderProgram(vertCode string, fragCode string) (*ShaderPr
 	gl.ctx.Call("compileShader", fragShaderID)
 
 	if compileStatusOk := gl.ctx.Call("getShaderParameter", fragShaderID, gl.constants.compileStatus).Truthy(); !compileStatusOk {
-		// defer gl.ctx.Call("deleteShader", fragShaderID)
-		js.Global().Call("showShaderCompileError", fragShaderID)
 		return nil, fmt.Errorf("failed to compile frag shader: %s", gl.ctx.Call("getShaderInfoLog", fragShaderID).String())
 	}
 
@@ -179,6 +210,25 @@ func (gl *Context) NewShaderProgram(vertCode string, fragCode string) (*ShaderPr
 	program.fragShaderID = fragShaderID
 	program.programID = programID
 
+	program.uniformsMat4f = make(map[string]js.TypedArray)
+	program.uniformsVec4f = make(map[string]js.TypedArray)
+
+	for uniformName, uniformVal := range uniformsMat4f {
+		if !gl.ctx.Call("getUniformLocation", programID, uniformName).Truthy() {
+			return nil, fmt.Errorf("invalid uniform '%s' passed to shader", uniformName)
+		}
+
+		program.uniformsMat4f[uniformName] = js.TypedArrayOf(uniformVal)
+	}
+
+	for uniformName, uniformVal := range uniformsVec4f {
+		if !gl.ctx.Call("getUniformLocation", programID, uniformName).Truthy() {
+			return nil, fmt.Errorf("invalid uniform '%s' passed to shader", uniformName)
+		}
+
+		program.uniformsVec4f[uniformName] = js.TypedArrayOf(uniformVal)
+	}
+
 	return program, nil
 }
 
@@ -195,7 +245,7 @@ type Mesh struct {
 }
 
 // NewMesh creates a new mesh (meshes are simply combinations of verticies & elments)
-func (gl *Context) NewMesh(verticies []float32, normals []float32, elements []uint16) *Mesh {
+func (gl *Context) NewMesh(verticies []float32, normals []float32, elements []uint16) (core.Mesh, error) {
 	verticiesTyped := js.TypedArrayOf(verticies)
 	vertBufferID := gl.ctx.Call("createBuffer", gl.constants.arrayBuffer)
 	gl.ctx.Call("bindBuffer", gl.constants.arrayBuffer, vertBufferID)
@@ -224,5 +274,5 @@ func (gl *Context) NewMesh(verticies []float32, normals []float32, elements []ui
 	mesh.elements = elementsTyped
 	mesh.size = len(elements)
 
-	return mesh
+	return mesh, nil
 }

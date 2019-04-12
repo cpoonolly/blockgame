@@ -13,11 +13,14 @@ run: ./static/bundle.wasm ./server/server
 ./static/bundle.wasm: ./wasm/bundle.wasm
 	cp ./wasm/bundle.wasm ./static/bundle.wasm
 
-./wasm/bundle.wasm:
+./wasm/bundle.wasm: ./core/core
 	GOOS=js GOARCH=wasm go build -o ./wasm/bundle.wasm ./wasm/
 
+./core/core:
+	go build -o ./core/core ./core/core.go
+
 # Clean targets
-clean: clean-server clean-static clean-wasm
+clean: clean-server clean-static clean-wasm clean-core
 
 clean-server:
 	find ./server -type f ! -name *.go -delete
@@ -27,3 +30,6 @@ clean-static:
 
 clean-wasm:
 	rm -f ./wasm/*.wasm
+
+clean-core:
+	find ./core -type f ! -name *.go -delete
