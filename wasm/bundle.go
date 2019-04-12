@@ -35,7 +35,6 @@ func main() {
 
 		uniform mat4 pMatrix;
 		uniform mat4 mvMatrix;
-		uniform mat4 normMatrix;
 		uniform vec4 color;
 
 		varying highp vec3 vLighting;
@@ -47,8 +46,7 @@ func main() {
 			highp vec3 ambientLight = vec3(0.3, 0.3, 0.3);
       highp vec3 directionalLightColor = vec3(.5, .5, .5);
 			highp vec3 directionalVector = normalize(vec3(0.85, 0.8, 0.75));
-			highp vec4 transformedNormal = normMatrix * vec4(normal, 1.0);
-			highp float directional = max(dot(transformedNormal.xyz, directionalVector), 0.0);
+			highp float directional = max(dot(normal, directionalVector), 0.0);
 			vLighting = ambientLight + (directionalLightColor * directional);
 
 			vColor = color.rgb;
@@ -169,12 +167,10 @@ func main() {
 	viewMatrix := mgl32.Ident4()
 	modelMatrix := mgl32.Ident4()
 	modelViewMatrix := mgl32.Ident4()
-	normalMatrix := mgl32.Ident4()
 
 	uniformsMat4f := map[string]js.TypedArray{
-		"pMatrix":    js.TypedArrayOf(projMatrix[:]),
-		"mvMatrix":   js.TypedArrayOf(modelViewMatrix[:]),
-		"normMatrix": js.TypedArrayOf(normalMatrix[:]),
+		"pMatrix":  js.TypedArrayOf(projMatrix[:]),
+		"mvMatrix": js.TypedArrayOf(modelViewMatrix[:]),
 	}
 
 	colorVec := []float32{1.0, 1.0, 1.0, 1.0}
@@ -239,7 +235,6 @@ func main() {
 		viewMatrix = mgl32.LookAtV(mgl32.Vec3{0.0 + cameraX, 0.0 + cameraY, -6.0 + cameraZ}, mgl32.Vec3{0.0, 0.0, 0.0}, mgl32.Vec3{0.0, 1.0, 0.0})
 		modelMatrix = mgl32.Ident4()
 		modelViewMatrix = viewMatrix.Mul4(modelMatrix)
-		normalMatrix = modelViewMatrix.Inv().Transpose()
 
 		gl.ClearScreen()
 		gl.Render(mesh, shader, uniformsMat4f, uniformVec4f)
