@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"github.com/cpoonolly/blockgame/wasm/webgl"
+	"github.com/go-gl/mathgl/mgl32"
+	"syscall/js"
 )
 
 var (
@@ -20,7 +22,7 @@ func main() {
 
 	gl, err = webgl.New("canvas_main")
 	if err != nil {
-		fmt.Print(err)
+		fmt.Println(err)
 		return
 	}
 
@@ -32,35 +34,161 @@ func main() {
 
 	vertShaderCode := `
 		attribute vec3 position;
-				
+		attribute vec3 normal;
+
+		uniform mat4 pMatrix;
+		uniform mat4 mvMatrix;
+		uniform mat4 normMatrix;
+
+		uniform vec4 color;
+
+		varying highp vec3 vColor;
+		varying highp vec3 vLighting;
+
 		void main(void) {
-			gl_Position = vec4(position, 1.0);
-		}
+			gl_Position = pMatrix * mvMatrix * vec4(position, 1.);
+
+			highp vec3 ambientLight = vec3(0.3, 0.3, 0.3);
+      highp vec3 directionalLightColor = vec3(1, 1, 1);
+			highp vec3 directionalVector = normalize(vec3(0.85, 0.8, 0.75));
+			highp vec4 transformedNormal = normMatrix * vec4(normal, 1.0);
+			highp float directional = max(dot(transformedNormal.xyz, directionalVector), 0.0);
+			vLighting = ambientLight + (directionalLightColor * directional);
+
+			vColor = color.rgb;
+		}	
 	`
 	fragShaderCode := `
+		varying highp vec3 vColor;
+		varying highp vec3 vLighting;
+
 		void main(void) {
-			gl_FragColor = vec4(0.0, 0.0, 1.0, 1.0);
+			gl_FragColor = vec4(vColor * vLighting, 1.);
 		}
 	`
 	shader, err = gl.NewShaderProgram(vertShaderCode, fragShaderCode)
 	if err != nil {
-		fmt.Print(err)
+		fmt.Println(err)
 		return
 	}
 
-	indicies := []float32{
-		-0.5, 0.5, 0,
-		-0.5, -0.5, 0,
-		0.5, -0.5, 0,
-	}
-	elements := []uint32{
-		2, 1, 0,
-	}
-	mesh = gl.NewMesh(indicies, elements)
+	verticies := []float32{
+		// Front face
+		-1.0, -1.0, 1.0,
+		1.0, -1.0, 1.0,
+		1.0, 1.0, 1.0,
+		-1.0, 1.0, 1.0,
 
-	gl.ClearScreen()
-	gl.Render(mesh, shader, nil, nil)
+		// Back face
+		-1.0, -1.0, -1.0,
+		-1.0, 1.0, -1.0,
+		1.0, 1.0, -1.0,
+		1.0, -1.0, -1.0,
 
+		// Top face
+		-1.0, 1.0, -1.0,
+		-1.0, 1.0, 1.0,
+		1.0, 1.0, 1.0,
+		1.0, 1.0, -1.0,
+
+		// Bottom face
+		-1.0, -1.0, -1.0,
+		1.0, -1.0, -1.0,
+		1.0, -1.0, 1.0,
+		-1.0, -1.0, 1.0,
+
+		// Right face
+		1.0, -1.0, -1.0,
+		1.0, 1.0, -1.0,
+		1.0, 1.0, 1.0,
+		1.0, -1.0, 1.0,
+
+		// Left face
+		-1.0, -1.0, -1.0,
+		-1.0, -1.0, 1.0,
+		-1.0, 1.0, 1.0,
+		-1.0, 1.0, -1.0,
+	}
+	normals := []float32{
+		// Front
+		0.0, 0.0, 1.0,
+		0.0, 0.0, 1.0,
+		0.0, 0.0, 1.0,
+		0.0, 0.0, 1.0,
+
+		// Back
+		0.0, 0.0, -1.0,
+		0.0, 0.0, -1.0,
+		0.0, 0.0, -1.0,
+		0.0, 0.0, -1.0,
+
+		// Top
+		0.0, 1.0, 0.0,
+		0.0, 1.0, 0.0,
+		0.0, 1.0, 0.0,
+		0.0, 1.0, 0.0,
+
+		// Bottom
+		0.0, -1.0, 0.0,
+		0.0, -1.0, 0.0,
+		0.0, -1.0, 0.0,
+		0.0, -1.0, 0.0,
+
+		// Right
+		1.0, 0.0, 0.0,
+		1.0, 0.0, 0.0,
+		1.0, 0.0, 0.0,
+		1.0, 0.0, 0.0,
+
+		// Left
+		-1.0, 0.0, 0.0,
+		-1.0, 0.0, 0.0,
+		-1.0, 0.0, 0.0,
+		-1.0, 0.0, 0.0,
+	}
+	indicies := []uint32{
+		// front
+		0, 1, 2,
+		0, 2, 3,
+		// back
+		4, 5, 6,
+		4, 6, 7,
+		// top
+		8, 9, 10,
+		8, 10, 11,
+		// bottom
+		12, 13, 14,
+		12, 14, 15,
+		// right
+		16, 17, 18,
+		16, 18, 19,
+		// left
+		20, 21, 22,
+		20, 22, 23,
+	}
+
+	mesh = gl.NewMesh(verticies, normals, indicies)
+
+	projMatrix := mgl32.Perspective(mgl32.DegToRad(45.0), float32(canvasWidth)/float32(canvasHeight), 1, 100.0)
+	viewMatrix := mgl32.LookAtV(mgl32.Vec3{3.0, 3.0, 3.0}, mgl32.Vec3{0.0, 0.0, 0.0}, mgl32.Vec3{0.0, 1.0, 0.0})
+	modelMatrix := mgl32.Ident4()
+	modelViewMatrix := viewMatrix.Mul4(modelMatrix)
+
+	normalMatrix := modelViewMatrix.Inv().Transpose()
+
+	colorVec := []float32{0.5, 0.5, 0.5, 1.0}
+
+	uniformsMat4f := map[string]js.TypedArray{
+		"pMatrix":    js.TypedArrayOf(projMatrix[:]),
+		"mvMatrix":   js.TypedArrayOf(modelViewMatrix[:]),
+		"normMatrix": js.TypedArrayOf(normalMatrix[:]),
+	}
+
+	uniformVec4f := map[string]js.TypedArray{
+		"color": js.TypedArrayOf(colorVec[:]),
+	}
+
+	gl.Render(mesh, shader, uniformsMat4f, uniformVec4f)
 	fmt.Println("Did it work???")
 
 	<-c

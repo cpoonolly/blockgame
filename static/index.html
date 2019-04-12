@@ -3,6 +3,20 @@
 		<meta charset="utf-8">
 		<script src="wasm_exec.js"></script>
 		<script>
+      function showShaderCompileError(shaderId) {
+        let canvas = document.getElementById("canvas_main");
+        let gl = canvas.getContext("webgl");
+
+        alert("shader failed to compile: " + gl.getShaderInfoLog(shaderId));
+      }
+
+      function showProgramLinkError(programId) {
+        let canvas = document.getElementById("canvas_main");
+        let gl = canvas.getContext("webgl");
+
+        alert("program failed to link: " + gl.getProgramInfoLog(programId));
+      }
+
       const go = new Go();
 			WebAssembly.instantiateStreaming(fetch("bundle.wasm"), go.importObject).then((result) => {
         go.run(result.instance);

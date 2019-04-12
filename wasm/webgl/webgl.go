@@ -2,7 +2,6 @@ package webgl
 
 import (
 	"fmt"
-	// "github.com/go-gl/mathgl/mgl32"
 	"syscall/js"
 )
 
@@ -22,6 +21,8 @@ type Context struct {
 		depthBufferBit     js.Value
 		depthTest          js.Value
 		lEqual             js.Value
+		linkStatus         js.Value
+		compileStatus      js.Value
 		float              js.Value
 		unsignedShort      js.Value
 		triangles          js.Value
@@ -60,6 +61,8 @@ func New(canvasID string) (*Context, error) {
 	gl.constants.depthBufferBit = gl.ctx.Get("DEPTH_BUFFER_BIT")
 	gl.constants.depthTest = gl.ctx.Get("DEPTH_TEST")
 	gl.constants.lEqual = gl.ctx.Get("LEQUAL")
+	gl.constants.linkStatus = gl.ctx.Get("LINK_STATUS")
+	gl.constants.compileStatus = gl.ctx.Get("COMPILE_STATUS")
 	gl.constants.float = gl.ctx.Get("FLOAT")
 	gl.constants.unsignedShort = gl.ctx.Get("UNSIGNED_SHORT")
 	gl.constants.triangles = gl.ctx.Get("TRIANGLES")
@@ -76,6 +79,11 @@ func (gl *Context) ClearScreen() {
 	gl.ctx.Call("clearColor", 1.0, 1.0, 1.0, 1.0)
 	gl.ctx.Call("clear", gl.constants.colorBufferBit)
 	gl.ctx.Call("clear", gl.constants.depthBufferBit)
+
+	// this doesn't belong here
+	width := gl.CanvasEl.Get("width").Int()
+	height := gl.CanvasEl.Get("height").Int()
+	gl.ctx.Call("viewport", 0, 0, width, height)
 }
 
 // Render renders the given mesh with the shader
@@ -96,13 +104,22 @@ func (gl *Context) Render(
 	// bind all vec4f uniforms
 	for uniformName, uniformVal := range uniformsVec4f {
 		uniformLoc := gl.ctx.Call("getUniformLocation", program.programID, uniformName)
-		gl.ctx.Call("uniform4fv", uniformLoc, false, uniformVal)
+		gl.ctx.Call("uniform4fv", uniformLoc, uniformVal)
 	}
 
+	// bind position attribute
 	gl.ctx.Call("bindBuffer", gl.constants.arrayBuffer, mesh.vertexBufferID)
-	gl.ctx.Call("bindBuffer", gl.constants.elementArrayBuffer, mesh.elementsBufferID)
 	gl.ctx.Call("vertexAttribPointer", 0, 3, gl.constants.float, false, 0, 0)
 	gl.ctx.Call("enableVertexAttribArray", 0)
+
+	// bind normal attribute
+	gl.ctx.Call("bindBuffer", gl.constants.arrayBuffer, mesh.normalBufferID)
+	gl.ctx.Call("vertexAttribPointer", 1, 3, gl.constants.float, false, 0, 0)
+	gl.ctx.Call("enableVertexAttribArray", 1)
+
+	// bind elements
+	gl.ctx.Call("bindBuffer", gl.constants.elementArrayBuffer, mesh.elementsBufferID)
+
 	gl.ctx.Call("drawElements", gl.constants.triangles, mesh.size, gl.constants.unsignedShort, 0)
 
 	return
@@ -122,17 +139,38 @@ func (gl *Context) NewShaderProgram(vertCode string, fragCode string) (*ShaderPr
 	gl.ctx.Call("shaderSource", vertShaderID, vertCode)
 	gl.ctx.Call("compileShader", vertShaderID)
 
+	if compileStatusOk := gl.ctx.Call("getShaderParameter", vertShaderID, gl.constants.compileStatus).Truthy(); !compileStatusOk {
+		// defer gl.ctx.Call("deleteShader", vertShaderID)
+		js.Global().Call("showShaderCompileError", vertShaderID)
+		return nil, fmt.Errorf("failed to compile vert shader: %s", gl.ctx.Call("getShaderInfoLog", vertShaderID).String())
+	}
+
 	fragShaderID := gl.ctx.Call("createShader", gl.constants.fragmentShader)
 	gl.ctx.Call("shaderSource", fragShaderID, fragCode)
 	gl.ctx.Call("compileShader", fragShaderID)
+
+	if compileStatusOk := gl.ctx.Call("getShaderParameter", fragShaderID, gl.constants.compileStatus).Truthy(); !compileStatusOk {
+		// defer gl.ctx.Call("deleteShader", fragShaderID)
+		js.Global().Call("showShaderCompileError", fragShaderID)
+		return nil, fmt.Errorf("failed to compile frag shader: %s", gl.ctx.Call("getShaderInfoLog", fragShaderID).String())
+	}
 
 	programID := gl.ctx.Call("createProgram")
 	gl.ctx.Call("attachShader", programID, vertShaderID)
 	gl.ctx.Call("attachShader", programID, fragShaderID)
 	gl.ctx.Call("linkProgram", programID)
 
+	if linkStatusOk := gl.ctx.Call("getProgramParameter", programID, gl.constants.linkStatus).Truthy(); !linkStatusOk {
+		js.Global().Call("showProgramLinkError", programID)
+		return nil, fmt.Errorf("failed to generate shader progam: %s", gl.ctx.Call("getProgramInfoLog", programID).String())
+	}
+
 	if gl.ctx.Call("getAttribLocation", programID, "position").Int() != 0 {
 		return nil, fmt.Errorf("all vertex shaders MUST have 'position' as it's first attribute")
+	}
+
+	if gl.ctx.Call("getAttribLocation", programID, "normal").Int() != 1 {
+		return nil, fmt.Errorf("all vertex shaders MUST have 'normal' as it's second attribute")
 	}
 
 	program := new(ShaderProgram)
@@ -146,24 +184,28 @@ func (gl *Context) NewShaderProgram(vertCode string, fragCode string) (*ShaderPr
 
 // Mesh a struct for managing a mesh of vbo's, ebo's, & vao's
 type Mesh struct {
-	// vertexArrayID    js.Value
 	gl               *Context
 	vertexBufferID   js.Value
+	normalBufferID   js.Value
 	elementsBufferID js.Value
 	verticies        js.TypedArray
+	normals          js.TypedArray
 	elements         js.TypedArray
 	size             int
 }
 
 // NewMesh creates a new mesh (meshes are simply combinations of verticies & elments)
-func (gl *Context) NewMesh(verticies []float32, elements []uint32) *Mesh {
-	// create vbo
+func (gl *Context) NewMesh(verticies []float32, normals []float32, elements []uint32) *Mesh {
 	verticiesTyped := js.TypedArrayOf(verticies)
 	vertBufferID := gl.ctx.Call("createBuffer", gl.constants.arrayBuffer)
 	gl.ctx.Call("bindBuffer", gl.constants.arrayBuffer, vertBufferID)
 	gl.ctx.Call("bufferData", gl.constants.arrayBuffer, verticiesTyped, gl.constants.staticDraw)
 
-	// create ebo
+	normalsTyped := js.TypedArrayOf(verticies)
+	normBufferID := gl.ctx.Call("createBuffer", gl.constants.arrayBuffer)
+	gl.ctx.Call("bindBuffer", gl.constants.arrayBuffer, normBufferID)
+	gl.ctx.Call("bufferData", gl.constants.arrayBuffer, normalsTyped, gl.constants.staticDraw)
+
 	elementsTyped := js.TypedArrayOf(elements)
 	elementBufferID := gl.ctx.Call("createBuffer", gl.constants.elementArrayBuffer)
 	gl.ctx.Call("bindBuffer", gl.constants.elementArrayBuffer, elementBufferID)
@@ -175,8 +217,10 @@ func (gl *Context) NewMesh(verticies []float32, elements []uint32) *Mesh {
 
 	mesh := new(Mesh)
 	mesh.vertexBufferID = vertBufferID
+	mesh.normalBufferID = normBufferID
 	mesh.elementsBufferID = elementBufferID
 	mesh.verticies = verticiesTyped
+	mesh.normals = normalsTyped
 	mesh.elements = elementsTyped
 	mesh.size = len(elements)
 
