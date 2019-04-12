@@ -29,10 +29,10 @@ func main() {
 	gl.CanvasEl.Set("height", canvasHeight)
 
 	vertShaderCode := `
-		attribute vec3 coordinates;
+		attribute vec3 position;
 				
 		void main(void) {
-			gl_Position = vec4(coordinates, 1.0);
+			gl_Position = vec4(position, 1.0);
 		}
 	`
 
@@ -42,7 +42,7 @@ func main() {
 		}
 	`
 
-	gl.NewShaderProgram("my_shader", vertShaderCode, fragShaderCode)
+	gl.NewShaderProgram(vertShaderCode, fragShaderCode)
 
 	fmt.Println("Did it work???")
 

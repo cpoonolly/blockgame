@@ -2,29 +2,15 @@ package webgl
 
 import (
 	"fmt"
+	// "github.com/go-gl/mathgl/mgl32"
 	"syscall/js"
 )
-
-type mesh struct {
-	vertexBufferID   js.Value
-	elementsBufferID js.Value
-	vertexArrayID    js.Value
-}
-
-type shaderProgram struct {
-	vertShaderID js.Value
-	fragShaderID js.Value
-	programID    js.Value
-}
 
 // Context a handle to canvas webgl
 type Context struct {
 	DocumentEl js.Value
 	CanvasEl   js.Value
 	ctx        js.Value
-
-	programsByName map[string]shaderProgram
-	meshesByName   map[string]mesh
 
 	constants struct {
 		vertexShader       js.Value
@@ -62,9 +48,6 @@ func New(canvasID string) (*Context, error) {
 		return gl, fmt.Errorf("failed to load webgl context - may be unsupported by browser")
 	}
 
-	gl.programsByName = make(map[string]shaderProgram)
-	gl.meshesByName = make(map[string]mesh)
-
 	// initialize constants
 	gl.constants.vertexShader = gl.ctx.Get("VERTEX_SHADER")
 	gl.constants.fragmentShader = gl.ctx.Get("FRAGMENT_SHADER")
@@ -84,12 +67,32 @@ func New(canvasID string) (*Context, error) {
 	return gl, nil
 }
 
-// NewShaderProgram links, compiles & registers a shader program using the given vertex & fragment shader
-func (gl *Context) NewShaderProgram(name string, vertCode string, fragCode string) error {
-	if _, programExists := gl.programsByName[name]; programExists {
-		return fmt.Errorf("a program already exists with name: %s", name)
-	}
+// ClearScreen clears the canvas to white
+func (gl *Context) ClearScreen() {
+	gl.ctx.Call("clearColor", 1.0, 1.0, 1.0, 1.0)
+	gl.ctx.Call("clear", gl.constants.colorBufferBit)
+	gl.ctx.Call("clear", gl.constants.depthBufferBit)
+}
 
+// Render renders the given mesh with the shader
+func (gl *Context) Render(shader *ShaderProgram, mesh *Mesh) {
+
+	return
+}
+
+// ShaderProgram a struct for managing a shader program
+type ShaderProgram struct {
+	gl           *Context
+	vertShaderID js.Value
+	fragShaderID js.Value
+	programID    js.Value
+
+	uniformsMat4f map[string]js.TypedArray
+	uniformsVec4f map[string]js.TypedArray
+}
+
+// NewShaderProgram links, compiles & registers a shader program using the given vertex & fragment shader
+func (gl *Context) NewShaderProgram(vertCode string, fragCode string) (*ShaderProgram, error) {
 	vertShaderID := gl.ctx.Call("createShader", gl.constants.vertexShader)
 	gl.ctx.Call("shaderSource", vertShaderID, vertCode)
 	gl.ctx.Call("compileShader", vertShaderID)
@@ -103,23 +106,51 @@ func (gl *Context) NewShaderProgram(name string, vertCode string, fragCode strin
 	gl.ctx.Call("attachShader", programID, fragShaderID)
 	gl.ctx.Call("linkProgram", programID)
 
-	if gl.ctx.Call("getAttributeLocation", "position").Int() != 0 {
-		return fmt.Errorf("all vertex shaders MUST have 'position' as it's first attribute")
+	if gl.ctx.Call("getAttribLocation", programID, "position").Int() != 0 {
+		return nil, fmt.Errorf("all vertex shaders MUST have 'position' as it's first attribute")
 	}
 
-	program := shaderProgram{vertShaderID, fragShaderID, programID}
-	gl.programsByName[name] = program
+	program := new(ShaderProgram)
+	program.gl = gl
+	program.vertShaderID = vertShaderID
+	program.fragShaderID = fragShaderID
+	program.programID = programID
+	program.uniformsMat4f = make(map[string]js.TypedArray)
+	program.uniformsVec4f = make(map[string]js.TypedArray)
 
+	return program, nil
+}
+
+// BindUniformMat4f binds a mat4f uniform to the shader program
+func (program *ShaderProgram) BindUniformMat4f(name string, val js.TypedArray) error {
+	if program.gl.ctx.Call("getUniformLocation", program.programID, name).Int() < 0 {
+		return fmt.Errorf("No uniform exists with name '%s' for the given program", name)
+	}
+
+	program.uniformsMat4f[name] = val
 	return nil
 }
 
-// NewMesh creates a new mesh with the given name (meshes are simply combinations of verticies & elments)
-func (gl *Context) NewMesh(name string, verticies []float32, elements []uint32) error {
-	_, meshExists := gl.meshesByName[name]
-	if meshExists {
-		return fmt.Errorf("a mesh already exists with name '%s'", name)
+// BindUniformVec4f binds a vec4f uniform to the shader program
+func (program *ShaderProgram) BindUniformVec4f(name string, val js.TypedArray) error {
+	if program.gl.ctx.Call("getUniformLocation", program.programID, name).Int() < 0 {
+		return fmt.Errorf("No uniform exists with name '%s' for the given program", name)
 	}
 
+	program.uniformsVec4f[name] = val
+	return nil
+}
+
+// Mesh a struct for managing a mesh of vbo's, ebo's, & vao's
+type Mesh struct {
+	gl               *Context
+	vertexBufferID   js.Value
+	elementsBufferID js.Value
+	vertexArrayID    js.Value
+}
+
+// NewMesh creates a new mesh with the given name (meshes are simply combinations of verticies & elments)
+func (gl *Context) NewMesh(name string, verticies []float32, elements []uint32) *Mesh {
 	// create vbo
 	verticiesTyped := js.TypedArrayOf(verticies)
 	vertBufferID := gl.ctx.Call("createBuffer", gl.constants.arrayBuffer)
@@ -136,34 +167,15 @@ func (gl *Context) NewMesh(name string, verticies []float32, elements []uint32) 
 	gl.ctx.Call("vertexAttribPointer", 0, 3, gl.constants.float, false, 0, 0)
 	gl.ctx.Call("enableVertexAttribArray", 0)
 
-	gl.meshesByName[name] = mesh{vertBufferID, elementBufferID, vertexArrayID}
-
 	// unbind everything
 	gl.ctx.Call("bindBuffer", gl.constants.arrayBuffer, nil)
 	gl.ctx.Call("bindVertexArray", 0)
 	gl.ctx.Call("bindBuffer", gl.constants.elementArrayBuffer, nil)
 
-	return nil
-}
+	mesh := new(Mesh)
+	mesh.vertexBufferID = vertBufferID
+	mesh.elementsBufferID = elementBufferID
+	mesh.vertexArrayID = vertexArrayID
 
-// UseProgram uses a shader program
-func (gl *Context) UseProgram(name string) error {
-	programID, programExists := gl.programsByName[name]
-	if !programExists {
-		return fmt.Errorf("no program found with name '%s'", name)
-	}
-
-	gl.ctx.Call("useProgram", programID)
-	return nil
-}
-
-func (gl *Context) BindUniformMat4(name string, mat []float32) {
-
-}
-
-// ClearScreen clears the canvas to white
-func (gl *Context) ClearScreen() {
-	gl.ctx.Call("clearColor", 1.0, 1.0, 1.0, 1.0)
-	gl.ctx.Call("clear", gl.constants.colorBufferBit)
-	gl.ctx.Call("clear", gl.constants.depthBufferBit)
+	return mesh
 }
