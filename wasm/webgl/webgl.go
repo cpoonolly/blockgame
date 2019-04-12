@@ -23,6 +23,8 @@ type Context struct {
 		depthTest          js.Value
 		lEqual             js.Value
 		float              js.Value
+		unsignedShort      js.Value
+		triangles          js.Value
 	}
 }
 
@@ -59,6 +61,8 @@ func New(canvasID string) (*Context, error) {
 	gl.constants.depthTest = gl.ctx.Get("DEPTH_TEST")
 	gl.constants.lEqual = gl.ctx.Get("LEQUAL")
 	gl.constants.float = gl.ctx.Get("FLOAT")
+	gl.constants.unsignedShort = gl.ctx.Get("UNSIGNED_SHORT")
+	gl.constants.triangles = gl.ctx.Get("TRIANGLES")
 
 	// do some initialization for stuff we know we'll need for the block game
 	gl.ctx.Call("enable", gl.constants.depthTest)
@@ -75,7 +79,31 @@ func (gl *Context) ClearScreen() {
 }
 
 // Render renders the given mesh with the shader
-func (gl *Context) Render(shader *ShaderProgram, mesh *Mesh) {
+func (gl *Context) Render(
+	mesh *Mesh,
+	program *ShaderProgram,
+	uniformsMat4f map[string]js.TypedArray,
+	uniformsVec4f map[string]js.TypedArray,
+) {
+	gl.ctx.Call("useProgram", program.programID)
+
+	// bind all mat4f uniforms
+	for uniformName, uniformVal := range uniformsMat4f {
+		uniformLoc := gl.ctx.Call("getUniformLocation", program.programID, uniformName)
+		gl.ctx.Call("uniformMatrix4fv", uniformLoc, false, uniformVal)
+	}
+
+	// bind all vec4f uniforms
+	for uniformName, uniformVal := range uniformsVec4f {
+		uniformLoc := gl.ctx.Call("getUniformLocation", program.programID, uniformName)
+		gl.ctx.Call("uniform4fv", uniformLoc, false, uniformVal)
+	}
+
+	gl.ctx.Call("bindBuffer", gl.constants.arrayBuffer, mesh.vertexBufferID)
+	gl.ctx.Call("bindBuffer", gl.constants.elementArrayBuffer, mesh.elementsBufferID)
+	gl.ctx.Call("vertexAttribPointer", 0, 3, gl.constants.float, false, 0, 0)
+	gl.ctx.Call("enableVertexAttribArray", 0)
+	gl.ctx.Call("drawElements", gl.constants.triangles, mesh.size, gl.constants.unsignedShort, 0)
 
 	return
 }
@@ -86,9 +114,6 @@ type ShaderProgram struct {
 	vertShaderID js.Value
 	fragShaderID js.Value
 	programID    js.Value
-
-	uniformsMat4f map[string]js.TypedArray
-	uniformsVec4f map[string]js.TypedArray
 }
 
 // NewShaderProgram links, compiles & registers a shader program using the given vertex & fragment shader
@@ -115,67 +140,45 @@ func (gl *Context) NewShaderProgram(vertCode string, fragCode string) (*ShaderPr
 	program.vertShaderID = vertShaderID
 	program.fragShaderID = fragShaderID
 	program.programID = programID
-	program.uniformsMat4f = make(map[string]js.TypedArray)
-	program.uniformsVec4f = make(map[string]js.TypedArray)
 
 	return program, nil
 }
 
-// BindUniformMat4f binds a mat4f uniform to the shader program
-func (program *ShaderProgram) BindUniformMat4f(name string, val js.TypedArray) error {
-	if program.gl.ctx.Call("getUniformLocation", program.programID, name).Int() < 0 {
-		return fmt.Errorf("No uniform exists with name '%s' for the given program", name)
-	}
-
-	program.uniformsMat4f[name] = val
-	return nil
-}
-
-// BindUniformVec4f binds a vec4f uniform to the shader program
-func (program *ShaderProgram) BindUniformVec4f(name string, val js.TypedArray) error {
-	if program.gl.ctx.Call("getUniformLocation", program.programID, name).Int() < 0 {
-		return fmt.Errorf("No uniform exists with name '%s' for the given program", name)
-	}
-
-	program.uniformsVec4f[name] = val
-	return nil
-}
-
 // Mesh a struct for managing a mesh of vbo's, ebo's, & vao's
 type Mesh struct {
+	// vertexArrayID    js.Value
 	gl               *Context
 	vertexBufferID   js.Value
 	elementsBufferID js.Value
-	vertexArrayID    js.Value
+	verticies        js.TypedArray
+	elements         js.TypedArray
+	size             int
 }
 
-// NewMesh creates a new mesh with the given name (meshes are simply combinations of verticies & elments)
-func (gl *Context) NewMesh(name string, verticies []float32, elements []uint32) *Mesh {
+// NewMesh creates a new mesh (meshes are simply combinations of verticies & elments)
+func (gl *Context) NewMesh(verticies []float32, elements []uint32) *Mesh {
 	// create vbo
 	verticiesTyped := js.TypedArrayOf(verticies)
 	vertBufferID := gl.ctx.Call("createBuffer", gl.constants.arrayBuffer)
-	gl.ctx.Call("bindBuffer", gl.constants.arrayBuffer, verticiesTyped, gl.constants.staticDraw)
+	gl.ctx.Call("bindBuffer", gl.constants.arrayBuffer, vertBufferID)
+	gl.ctx.Call("bufferData", gl.constants.arrayBuffer, verticiesTyped, gl.constants.staticDraw)
 
 	// create ebo
 	elementsTyped := js.TypedArrayOf(elements)
 	elementBufferID := gl.ctx.Call("createBuffer", gl.constants.elementArrayBuffer)
-	gl.ctx.Call("bindBuffer", gl.constants.elementArrayBuffer, elementsTyped, gl.constants.staticDraw)
-
-	// create vao
-	vertexArrayID := gl.ctx.Call("createVertexArray")
-	gl.ctx.Call("bindVertexArray", vertexArrayID)
-	gl.ctx.Call("vertexAttribPointer", 0, 3, gl.constants.float, false, 0, 0)
-	gl.ctx.Call("enableVertexAttribArray", 0)
+	gl.ctx.Call("bindBuffer", gl.constants.elementArrayBuffer, elementBufferID)
+	gl.ctx.Call("bufferData", gl.constants.elementArrayBuffer, elementsTyped, gl.constants.staticDraw)
 
 	// unbind everything
 	gl.ctx.Call("bindBuffer", gl.constants.arrayBuffer, nil)
-	gl.ctx.Call("bindVertexArray", 0)
 	gl.ctx.Call("bindBuffer", gl.constants.elementArrayBuffer, nil)
 
 	mesh := new(Mesh)
 	mesh.vertexBufferID = vertBufferID
 	mesh.elementsBufferID = elementBufferID
-	mesh.vertexArrayID = vertexArrayID
+	mesh.verticies = verticiesTyped
+	mesh.elements = elementsTyped
+	mesh.size = len(elements)
 
 	return mesh
 }

@@ -6,8 +6,10 @@ import (
 )
 
 var (
-	gl  *webgl.Context
-	err error
+	gl     *webgl.Context
+	shader *webgl.ShaderProgram
+	mesh   *webgl.Mesh
+	err    error
 )
 
 func main() {
@@ -35,14 +37,29 @@ func main() {
 			gl_Position = vec4(position, 1.0);
 		}
 	`
-
 	fragShaderCode := `
 		void main(void) {
 			gl_FragColor = vec4(0.0, 0.0, 1.0, 1.0);
 		}
 	`
+	shader, err = gl.NewShaderProgram(vertShaderCode, fragShaderCode)
+	if err != nil {
+		fmt.Print(err)
+		return
+	}
 
-	gl.NewShaderProgram(vertShaderCode, fragShaderCode)
+	indicies := []float32{
+		-0.5, 0.5, 0,
+		-0.5, -0.5, 0,
+		0.5, -0.5, 0,
+	}
+	elements := []uint32{
+		2, 1, 0,
+	}
+	mesh = gl.NewMesh(indicies, elements)
+
+	gl.ClearScreen()
+	gl.Render(mesh, shader, nil, nil)
 
 	fmt.Println("Did it work???")
 
