@@ -45,7 +45,7 @@ func main() {
 			gl_Position = pMatrix * mvMatrix * vec4(position, 1.);
 
 			highp vec3 ambientLight = vec3(0.3, 0.3, 0.3);
-      highp vec3 directionalLightColor = vec3(1, 1, 1);
+      highp vec3 directionalLightColor = vec3(.5, .5, .5);
 			highp vec3 directionalVector = normalize(vec3(0.85, 0.8, 0.75));
 			highp vec4 transformedNormal = normMatrix * vec4(normal, 1.0);
 			highp float directional = max(dot(transformedNormal.xyz, directionalVector), 0.0);
@@ -81,29 +81,29 @@ func main() {
 		1.0, 1.0, -1.0,
 		1.0, -1.0, -1.0,
 
-		// // Top face
-		// -1.0, 1.0, -1.0,
-		// -1.0, 1.0, 1.0,
-		// 1.0, 1.0, 1.0,
-		// 1.0, 1.0, -1.0,
+		// Top face
+		-1.0, 1.0, -1.0,
+		-1.0, 1.0, 1.0,
+		1.0, 1.0, 1.0,
+		1.0, 1.0, -1.0,
 
-		// // Bottom face
-		// -1.0, -1.0, -1.0,
-		// 1.0, -1.0, -1.0,
-		// 1.0, -1.0, 1.0,
-		// -1.0, -1.0, 1.0,
+		// Bottom face
+		-1.0, -1.0, -1.0,
+		1.0, -1.0, -1.0,
+		1.0, -1.0, 1.0,
+		-1.0, -1.0, 1.0,
 
-		// // Right face
-		// 1.0, -1.0, -1.0,
-		// 1.0, 1.0, -1.0,
-		// 1.0, 1.0, 1.0,
-		// 1.0, -1.0, 1.0,
+		// Right face
+		1.0, -1.0, -1.0,
+		1.0, 1.0, -1.0,
+		1.0, 1.0, 1.0,
+		1.0, -1.0, 1.0,
 
-		// // Left face
-		// -1.0, -1.0, -1.0,
-		// -1.0, -1.0, 1.0,
-		// -1.0, 1.0, 1.0,
-		// -1.0, 1.0, -1.0,
+		// Left face
+		-1.0, -1.0, -1.0,
+		-1.0, -1.0, 1.0,
+		-1.0, 1.0, 1.0,
+		-1.0, 1.0, -1.0,
 	}
 	normals := []float32{
 		// Front
@@ -118,29 +118,29 @@ func main() {
 		0.0, 0.0, -1.0,
 		0.0, 0.0, -1.0,
 
-		// // Top
-		// 0.0, 1.0, 0.0,
-		// 0.0, 1.0, 0.0,
-		// 0.0, 1.0, 0.0,
-		// 0.0, 1.0, 0.0,
+		// Top
+		0.0, 1.0, 0.0,
+		0.0, 1.0, 0.0,
+		0.0, 1.0, 0.0,
+		0.0, 1.0, 0.0,
 
-		// // Bottom
-		// 0.0, -1.0, 0.0,
-		// 0.0, -1.0, 0.0,
-		// 0.0, -1.0, 0.0,
-		// 0.0, -1.0, 0.0,
+		// Bottom
+		0.0, -1.0, 0.0,
+		0.0, -1.0, 0.0,
+		0.0, -1.0, 0.0,
+		0.0, -1.0, 0.0,
 
-		// // Right
-		// 1.0, 0.0, 0.0,
-		// 1.0, 0.0, 0.0,
-		// 1.0, 0.0, 0.0,
-		// 1.0, 0.0, 0.0,
+		// Right
+		1.0, 0.0, 0.0,
+		1.0, 0.0, 0.0,
+		1.0, 0.0, 0.0,
+		1.0, 0.0, 0.0,
 
-		// // Left
-		// -1.0, 0.0, 0.0,
-		// -1.0, 0.0, 0.0,
-		// -1.0, 0.0, 0.0,
-		// -1.0, 0.0, 0.0,
+		// Left
+		-1.0, 0.0, 0.0,
+		-1.0, 0.0, 0.0,
+		-1.0, 0.0, 0.0,
+		-1.0, 0.0, 0.0,
 	}
 	indicies := []uint16{
 		// front
@@ -149,23 +149,23 @@ func main() {
 		// back
 		4, 5, 6,
 		4, 6, 7,
-		// // top
-		// 8, 9, 10,
-		// 8, 10, 11,
-		// // bottom
-		// 12, 13, 14,
-		// 12, 14, 15,
-		// // right
-		// 16, 17, 18,
-		// 16, 18, 19,
-		// // left
-		// 20, 21, 22,
-		// 20, 22, 23,
+		// top
+		8, 9, 10,
+		8, 10, 11,
+		// bottom
+		12, 13, 14,
+		12, 14, 15,
+		// right
+		16, 17, 18,
+		16, 18, 19,
+		// left
+		20, 21, 22,
+		20, 22, 23,
 	}
 
 	mesh = gl.NewMesh(verticies, normals, indicies)
 
-	projMatrix := mgl32.Perspective(mgl32.DegToRad(45.0), float32(canvasWidth)/float32(canvasHeight), 0, 1000.0)
+	projMatrix := mgl32.Perspective(mgl32.DegToRad(45.0), float32(canvasWidth)/float32(canvasHeight), 1, 50.0)
 	viewMatrix := mgl32.Ident4()
 	modelMatrix := mgl32.Ident4()
 	modelViewMatrix := mgl32.Ident4()

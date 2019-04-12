@@ -71,18 +71,17 @@ func New(canvasID string) (*Context, error) {
 	body := gl.DocumentEl.Get("body")
 	width := body.Get("clientWidth").Int()
 	height := body.Get("clientHeight").Int()
-
-	gl.ctx.Call("clearColor", 0.0, 0.0, 0.0, 0.9)
-	gl.ctx.Call("clearDepth", 1.0)
 	gl.ctx.Call("viewport", 0, 0, width, height)
-	gl.ctx.Call("depthFunc", gl.constants.lEqual)
 
 	return gl, nil
 }
 
 // ClearScreen clears the canvas to white
 func (gl *Context) ClearScreen() {
+	gl.ctx.Call("clearColor", 0.0, 0.0, 0.0, 0.9)
+	gl.ctx.Call("clearDepth", 1.0)
 	gl.ctx.Call("enable", gl.constants.depthTest)
+	gl.ctx.Call("depthFunc", gl.constants.lEqual)
 	gl.ctx.Call("clear", gl.constants.colorBufferBit)
 	gl.ctx.Call("clear", gl.constants.depthBufferBit)
 }
