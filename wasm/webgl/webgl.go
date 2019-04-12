@@ -68,7 +68,13 @@ func New(canvasID string) (*Context, error) {
 	gl.constants.triangles = gl.ctx.Get("TRIANGLES")
 
 	// do some initialization for stuff we know we'll need for the block game
-	gl.ctx.Call("enable", gl.constants.depthTest)
+	body := gl.DocumentEl.Get("body")
+	width := body.Get("clientWidth").Int()
+	height := body.Get("clientHeight").Int()
+
+	gl.ctx.Call("clearColor", 0.0, 0.0, 0.0, 0.9)
+	gl.ctx.Call("clearDepth", 1.0)
+	gl.ctx.Call("viewport", 0, 0, width, height)
 	gl.ctx.Call("depthFunc", gl.constants.lEqual)
 
 	return gl, nil
@@ -76,14 +82,9 @@ func New(canvasID string) (*Context, error) {
 
 // ClearScreen clears the canvas to white
 func (gl *Context) ClearScreen() {
-	gl.ctx.Call("clearColor", 1.0, 1.0, 1.0, 1.0)
+	gl.ctx.Call("enable", gl.constants.depthTest)
 	gl.ctx.Call("clear", gl.constants.colorBufferBit)
 	gl.ctx.Call("clear", gl.constants.depthBufferBit)
-
-	// this doesn't belong here
-	width := gl.CanvasEl.Get("width").Int()
-	height := gl.CanvasEl.Get("height").Int()
-	gl.ctx.Call("viewport", 0, 0, width, height)
 }
 
 // Render renders the given mesh with the shader
@@ -107,18 +108,18 @@ func (gl *Context) Render(
 		gl.ctx.Call("uniform4fv", uniformLoc, uniformVal)
 	}
 
+	// bind elements
+	gl.ctx.Call("bindBuffer", gl.constants.elementArrayBuffer, mesh.elementsBufferID)
+
 	// bind position attribute
 	gl.ctx.Call("bindBuffer", gl.constants.arrayBuffer, mesh.vertexBufferID)
 	gl.ctx.Call("vertexAttribPointer", 0, 3, gl.constants.float, false, 0, 0)
 	gl.ctx.Call("enableVertexAttribArray", 0)
 
 	// bind normal attribute
-	gl.ctx.Call("bindBuffer", gl.constants.arrayBuffer, mesh.normalBufferID)
-	gl.ctx.Call("vertexAttribPointer", 1, 3, gl.constants.float, false, 0, 0)
-	gl.ctx.Call("enableVertexAttribArray", 1)
-
-	// bind elements
-	gl.ctx.Call("bindBuffer", gl.constants.elementArrayBuffer, mesh.elementsBufferID)
+	// gl.ctx.Call("bindBuffer", gl.constants.arrayBuffer, mesh.normalBufferID)
+	// gl.ctx.Call("vertexAttribPointer", 1, 3, gl.constants.float, false, 0, 0)
+	// gl.ctx.Call("enableVertexAttribArray", 1)
 
 	gl.ctx.Call("drawElements", gl.constants.triangles, mesh.size, gl.constants.unsignedShort, 0)
 
@@ -169,9 +170,11 @@ func (gl *Context) NewShaderProgram(vertCode string, fragCode string) (*ShaderPr
 		return nil, fmt.Errorf("all vertex shaders MUST have 'position' as it's first attribute")
 	}
 
-	if gl.ctx.Call("getAttribLocation", programID, "normal").Int() != 1 {
-		return nil, fmt.Errorf("all vertex shaders MUST have 'normal' as it's second attribute")
-	}
+	/*
+		if gl.ctx.Call("getAttribLocation", programID, "normal").Int() != 1 {
+			return nil, fmt.Errorf("all vertex shaders MUST have 'normal' as it's second attribute")
+		}
+	*/
 
 	program := new(ShaderProgram)
 	program.gl = gl
@@ -195,7 +198,7 @@ type Mesh struct {
 }
 
 // NewMesh creates a new mesh (meshes are simply combinations of verticies & elments)
-func (gl *Context) NewMesh(verticies []float32, normals []float32, elements []uint32) *Mesh {
+func (gl *Context) NewMesh(verticies []float32, normals []float32, elements []uint16) *Mesh {
 	verticiesTyped := js.TypedArrayOf(verticies)
 	vertBufferID := gl.ctx.Call("createBuffer", gl.constants.arrayBuffer)
 	gl.ctx.Call("bindBuffer", gl.constants.arrayBuffer, vertBufferID)

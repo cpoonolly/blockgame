@@ -37,10 +37,17 @@
         right:0;
         bottom:0;
         left:0;
+        z-index: 1000;
+      }
+
+      #fps_counter {
+        position: fixed;
+        z-index: 2000;
       }
     </style>
 	</head>
 	<body>
+    <p id="fps_counter">FPS: -</p>
     <canvas id="canvas_main"></canvas>
   </body>
 </html>
