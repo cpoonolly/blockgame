@@ -28,7 +28,6 @@ func main() {
 		return
 	}
 
-	var cameraX, cameraY, cameraZ float32
 	var renderFrame, onKeyDown, onKeyUp js.Func
 
 	isKeyDownMap := make(map[string]bool)
@@ -47,34 +46,47 @@ func main() {
 		dt := now - lastRenderTime
 		lastRenderTime = now
 
-		if isKeyDownMap["ArrowLeft"] {
-			cameraX -= 0.1
+		var dx, dz, dpitch, dyaw, ddistance float32
+
+		if isKeyDownMap["KeyA"] {
+			ddistance = 0.1
 		}
-		if isKeyDownMap["ArrowRight"] {
-			cameraX += 0.1
+		if isKeyDownMap["KeyS"] {
+			ddistance = -0.1
 		}
 
 		if isKeyDownMap["ControlLeft"] {
 			if isKeyDownMap["ArrowUp"] {
-				cameraY += 0.1
+				dpitch = 0.1
 			}
 			if isKeyDownMap["ArrowDown"] {
-				cameraY -= 0.1
+				dpitch = -0.1
+			}
+			if isKeyDownMap["ArrowLeft"] {
+				dyaw = 0.1
+			}
+			if isKeyDownMap["ArrowRight"] {
+				dyaw = -0.1
 			}
 		} else {
 			if isKeyDownMap["ArrowUp"] {
-				cameraZ -= 0.1
+				dz = 0.1
 			}
 			if isKeyDownMap["ArrowDown"] {
-				cameraZ += 0.1
+				dz = -0.1
+			}
+			if isKeyDownMap["ArrowLeft"] {
+				dx = 0.1
+			}
+			if isKeyDownMap["ArrowRight"] {
+				dx = -0.1
 			}
 		}
 
-		gl.DocumentEl.Call("getElementById", "fps_counter").Set("innerHTML", fmt.Sprintf("FPS: %f", 1000.0/dt))
-
-		game.Update(cameraX, cameraY, cameraZ)
+		game.Update(dt, dx, 0.0, dz, dpitch, dyaw, ddistance)
 		game.Render()
 
+		gl.DocumentEl.Call("getElementById", "game_log").Set("innerHTML", game.Log)
 		js.Global().Call("requestAnimationFrame", renderFrame)
 
 		return nil

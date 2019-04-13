@@ -29,6 +29,7 @@ type Context struct {
 		float              js.Value
 		unsignedShort      js.Value
 		triangles          js.Value
+		lines              js.Value
 	}
 }
 
@@ -69,6 +70,7 @@ func New(canvasID string) (*Context, error) {
 	gl.constants.float = gl.ctx.Get("FLOAT")
 	gl.constants.unsignedShort = gl.ctx.Get("UNSIGNED_SHORT")
 	gl.constants.triangles = gl.ctx.Get("TRIANGLES")
+	gl.constants.lines = gl.ctx.Get("GL_LINES")
 
 	// do some initialization for stuff we know we'll need for the block game
 	body := gl.DocumentEl.Get("body")
@@ -93,8 +95,8 @@ func (gl *Context) GetViewportHeight() int {
 }
 
 // ClearScreen clears the canvas to white
-func (gl *Context) ClearScreen() error {
-	gl.ctx.Call("clearColor", 0.0, 0.0, 0.0, 0.9)
+func (gl *Context) ClearScreen(colorR, colorG, colorB float32) error {
+	gl.ctx.Call("clearColor", colorR, colorG, colorB, 0.9)
 	gl.ctx.Call("clearDepth", 1.0)
 	gl.ctx.Call("enable", gl.constants.depthTest)
 	gl.ctx.Call("depthFunc", gl.constants.lEqual)
@@ -104,8 +106,30 @@ func (gl *Context) ClearScreen() error {
 	return nil
 }
 
+// Enable simple interface to gl enable
+func (gl *Context) Enable(constName string) {
+	glConst := gl.ctx.Get(constName)
+	gl.ctx.Call("enable", glConst)
+}
+
+// Disable simple interface to gl disable
+func (gl *Context) Disable(constName string) {
+	glConst := gl.ctx.Get(constName)
+	gl.ctx.Call("enable", glConst)
+}
+
+// RenderTriangles renders the triangles of the given mesh with the shader
+func (gl *Context) RenderTriangles(coreMesh core.Mesh, coreProgram core.ShaderProgram) error {
+	return gl.render(coreMesh, coreProgram, gl.constants.triangles)
+}
+
+// RenderLines renders the lines of the given mesh with the shader
+func (gl *Context) RenderLines(coreMesh core.Mesh, coreProgram core.ShaderProgram) error {
+	return gl.render(coreMesh, coreProgram, gl.constants.lines)
+}
+
 // Render renders the given mesh with the shader
-func (gl *Context) Render(coreMesh core.Mesh, coreProgram core.ShaderProgram) error {
+func (gl *Context) render(coreMesh core.Mesh, coreProgram core.ShaderProgram, renderConst js.Value) error {
 	mesh, isWebGlMesh := coreMesh.(*Mesh)
 	if !isWebGlMesh {
 		return fmt.Errorf("invalid mesh passed to this gl context. must be a webgl.Mesh")
@@ -143,7 +167,7 @@ func (gl *Context) Render(coreMesh core.Mesh, coreProgram core.ShaderProgram) er
 	gl.ctx.Call("vertexAttribPointer", 1, 3, gl.constants.float, false, 0, 0)
 	gl.ctx.Call("enableVertexAttribArray", 1)
 
-	gl.ctx.Call("drawElements", gl.constants.triangles, mesh.size, gl.constants.unsignedShort, 0)
+	gl.ctx.Call("drawElements", renderConst, mesh.size, gl.constants.unsignedShort, 0)
 
 	return nil
 }
