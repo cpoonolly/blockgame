@@ -47,8 +47,9 @@ type Game struct {
 	normalMatrix    mgl32.Mat4
 	color           mgl32.Vec4
 
-	blocks []block
-	camera camera
+	playerBlock block
+	worldBlocks []block
+	camera      camera
 
 	Log string
 }
@@ -89,24 +90,28 @@ func NewGame(glCtx GlContext) (*Game, error) {
 		return nil, err
 	}
 
-	game.blocks = make([]block, 3)
+	game.playerBlock.scale = mgl32.Vec3{0.5, 0.5, 0.5}
+	game.playerBlock.color = mgl32.Vec4{0.9, 0.9, 0.9, 1.0}
 
-	// block 1
-	game.blocks[0].pos = mgl32.Vec3{3.0, 0.0, 0.0}
-	game.blocks[0].scale = mgl32.Vec3{1.0, 1.0, 1.0}
-	game.blocks[0].color = mgl32.Vec4{0.1, 1.0, 0.1, 1.0}
+	// generate world blocks
+	game.worldBlocks = make([]block, 3)
 
-	// block 2
-	game.blocks[1].pos = mgl32.Vec3{-3.0, 0.0, 0.0}
-	game.blocks[1].scale = mgl32.Vec3{1.0, 1.0, 1.0}
-	game.blocks[1].color = mgl32.Vec4{1.0, 0.1, 0.1, 1.0}
+	// world block 1
+	game.worldBlocks[0].pos = mgl32.Vec3{3.0, 0.0, 0.0}
+	game.worldBlocks[0].scale = mgl32.Vec3{1.0, 1.0, 1.0}
+	game.worldBlocks[0].color = mgl32.Vec4{0.1, 1.0, 0.1, 1.0}
 
-	// block 3
-	game.blocks[2].pos = mgl32.Vec3{0.0, 0.0, -3.0}
-	game.blocks[2].scale = mgl32.Vec3{1.0, 1.0, 1.0}
-	game.blocks[2].color = mgl32.Vec4{0.1, 0.1, 1.0, 1.0}
+	// world block 2
+	game.worldBlocks[1].pos = mgl32.Vec3{-5.0, 0.0, 0.0}
+	game.worldBlocks[1].scale = mgl32.Vec3{2.0, 2.0, 2.0}
+	game.worldBlocks[1].color = mgl32.Vec4{1.0, 0.1, 0.1, 1.0}
 
-	game.camera.pos = mgl32.Vec3{0.0, 0.0, -6.0}
+	// world block 3
+	game.worldBlocks[2].pos = mgl32.Vec3{0.0, 0.0, -5.0}
+	game.worldBlocks[2].scale = mgl32.Vec3{2.0, 1.0, 2.0}
+	game.worldBlocks[2].color = mgl32.Vec4{0.1, 0.1, 1.0, 1.0}
+
+	game.camera.pos = mgl32.Vec3{2.0, 0.0, -6.0}
 	game.camera.lookAt = mgl32.Vec3{0.0, 0.0, 0.0}
 	game.camera.up = mgl32.Vec3{0.0, 1.0, 0.0}
 
@@ -116,13 +121,21 @@ func NewGame(glCtx GlContext) (*Game, error) {
 // Update updates the game models
 func (game *Game) Update(dt, dx, dy, dz float32) {
 	game.camera.pos = game.camera.pos.Add(mgl32.Vec3{dx, dy, dz})
+	game.camera.lookAt = game.camera.lookAt.Add(mgl32.Vec3{dx, 0.0, dz})
+	game.playerBlock.pos = game.playerBlock.pos.Add(mgl32.Vec3{dx, 0.0, dz})
 
 	game.Log = fmt.Sprintf(
-		"FPS: %f\tCamera: (x: %f, y: %f, z: %f)",
+		"FPS: %.2f\tCamera: (x:%.2f, y:%.2f, z:%.2f)\tCameraLookAt: (x:%.2f, y:%.2f, z:%.2f)\tPlayer:(x:%.2f, y:%.2f, z:%.2f)",
 		1000.0/dt,
 		game.camera.pos.X(),
 		game.camera.pos.Y(),
 		game.camera.pos.Z(),
+		game.camera.lookAt.X(),
+		game.camera.lookAt.Y(),
+		game.camera.lookAt.Z(),
+		game.playerBlock.pos.X(),
+		game.playerBlock.pos.Y(),
+		game.playerBlock.pos.Z(),
 	)
 }
 
@@ -135,7 +148,13 @@ func (game *Game) Render() {
 	camera := game.camera
 	viewMatrix := mgl32.LookAtV(camera.pos, camera.lookAt, camera.up)
 
-	for _, block := range game.blocks {
+	// Render player
+	if err := game.renderBlock(game.playerBlock, viewMatrix); err != nil {
+		panic(err)
+	}
+
+	// Render world
+	for _, block := range game.worldBlocks {
 		if err := game.renderBlock(block, viewMatrix); err != nil {
 			panic(err)
 		}
@@ -146,7 +165,7 @@ func (game *Game) renderBlock(block block, viewMatrix mgl32.Mat4) error {
 	scaleMatrix := mgl32.Scale3D(block.scale.X(), block.scale.Y(), block.scale.Z())
 	translateMatrix := mgl32.Translate3D(block.pos.X(), block.pos.Y(), block.pos.Z())
 
-	modelMatrix := mgl32.Ident4().Mul4(scaleMatrix).Mul4(translateMatrix)
+	modelMatrix := mgl32.Ident4().Mul4(translateMatrix).Mul4(scaleMatrix)
 
 	game.modelViewMatrix = viewMatrix.Mul4(modelMatrix)
 	game.normalMatrix = game.modelViewMatrix.Inv().Transpose()
@@ -256,7 +275,6 @@ var blockIndicies = [...]uint16{
 	20, 22, 23,
 }
 
-// TODO - Look into cell shading from this guy: https://github.com/aakshayy/toonshader-webgl
 var blockVertShaderCode = `
 	attribute vec3 position;
 	attribute vec3 normal;

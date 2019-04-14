@@ -33,7 +33,7 @@ type Context struct {
 	}
 }
 
-// New initialize a new gl.Context
+// New initialize a new webgl.Context
 func New(canvasID string) (*Context, error) {
 	gl := new(Context)
 
