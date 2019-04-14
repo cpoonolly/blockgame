@@ -46,31 +46,46 @@ func main() {
 		dt := now - lastRenderTime
 		lastRenderTime = now
 
-		var dx, dy, dz float32
+		inputMap := map[core.GameInput]bool{
+			core.GameInputCameraMoveUp:      false,
+			core.GameInputCameraMoveDown:    false,
+			core.GameInputCameraRotateLeft:  false,
+			core.GameInputCameraRotateRight: false,
+			core.GameInputPlayerMoveForward: false,
+			core.GameInputPlayerMoveBack:    false,
+			core.GameInputPlayerMoveLeft:    false,
+			core.GameInputPlayerMoveRight:   false,
+		}
 
 		if isKeyDownMap["ControlLeft"] {
 			if isKeyDownMap["ArrowUp"] {
-				dy = 0.1
+				inputMap[core.GameInputCameraMoveUp] = true
 			}
 			if isKeyDownMap["ArrowDown"] {
-				dy = -0.1
+				inputMap[core.GameInputCameraMoveDown] = true
+			}
+			if isKeyDownMap["ArrowLeft"] {
+				inputMap[core.GameInputCameraRotateLeft] = true
+			}
+			if isKeyDownMap["ArrowRight"] {
+				inputMap[core.GameInputCameraRotateRight] = true
 			}
 		} else {
 			if isKeyDownMap["ArrowUp"] {
-				dz = 0.1
+				inputMap[core.GameInputPlayerMoveForward] = true
 			}
 			if isKeyDownMap["ArrowDown"] {
-				dz = -0.1
+				inputMap[core.GameInputPlayerMoveBack] = true
 			}
 			if isKeyDownMap["ArrowLeft"] {
-				dx = 0.1
+				inputMap[core.GameInputPlayerMoveLeft] = true
 			}
 			if isKeyDownMap["ArrowRight"] {
-				dx = -0.1
+				inputMap[core.GameInputPlayerMoveRight] = true
 			}
 		}
 
-		game.Update(dt, dx, dy, dz)
+		game.Update(dt, inputMap)
 		game.Render()
 
 		gl.DocumentEl.Call("getElementById", "game_log").Set("innerHTML", game.Log)

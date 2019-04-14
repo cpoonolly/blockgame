@@ -25,16 +25,49 @@ type GlContext interface {
 }
 
 type block struct {
-	pos   mgl32.Vec3
-	scale mgl32.Vec3
-	color mgl32.Vec4
+	pos      mgl32.Vec3
+	scale    mgl32.Vec3
+	velocity mgl32.Vec3
+	color    mgl32.Vec4
 }
 
 type camera struct {
-	pos    mgl32.Vec3
 	lookAt mgl32.Vec3
+	relPos mgl32.Vec3 // eye position relative to lookAt point
 	up     mgl32.Vec3
 }
+
+func (camera *camera) getEyePos() mgl32.Vec3 {
+	return camera.lookAt.Add(camera.relPos)
+}
+
+// GameInput an input for the game
+type GameInput int
+
+const (
+	// GameInputPlayerMoveForward input to move the player forward
+	GameInputPlayerMoveForward GameInput = iota + 1
+	// GameInputPlayerMoveBack input to move the player back
+	GameInputPlayerMoveBack
+	// GameInputPlayerMoveLeft input to move the player left
+	GameInputPlayerMoveLeft
+	// GameInputPlayerMoveRight input to move the player right
+	GameInputPlayerMoveRight
+	// GameInputCameraMoveUp input to move camera up relative to player
+	GameInputCameraMoveUp
+	// GameInputCameraMoveDown input to move camera down relative to it's lookAt point
+	GameInputCameraMoveDown
+	// GameInputCameraRotateLeft input to rotate camera left relative to it's lookAt point
+	GameInputCameraRotateLeft
+	// GameInputCameraRotateRight input to rotate camera right relative to it's lookAt point
+	GameInputCameraRotateRight
+)
+
+// player moves 1 unit per second
+const playerSpeed float32 = 10
+
+// camera move .5 units per second
+const cameraSpeed float32 = 100
 
 // Game represents a game
 type Game struct {
@@ -47,9 +80,9 @@ type Game struct {
 	normalMatrix    mgl32.Mat4
 	color           mgl32.Vec4
 
-	playerBlock block
-	worldBlocks []block
-	camera      camera
+	playerBlock *block
+	worldBlocks []*block
+	camera      *camera
 
 	Log string
 }
@@ -90,46 +123,60 @@ func NewGame(glCtx GlContext) (*Game, error) {
 		return nil, err
 	}
 
+	game.playerBlock = new(block)
 	game.playerBlock.scale = mgl32.Vec3{0.5, 0.5, 0.5}
 	game.playerBlock.color = mgl32.Vec4{0.9, 0.9, 0.9, 1.0}
 
 	// generate world blocks
-	game.worldBlocks = make([]block, 3)
+	game.worldBlocks = make([]*block, 3)
+	var tmpBlock *block
 
 	// world block 1
-	game.worldBlocks[0].pos = mgl32.Vec3{3.0, 0.0, 0.0}
-	game.worldBlocks[0].scale = mgl32.Vec3{1.0, 1.0, 1.0}
-	game.worldBlocks[0].color = mgl32.Vec4{0.1, 1.0, 0.1, 1.0}
+	tmpBlock = new(block)
+	tmpBlock.pos = mgl32.Vec3{3.0, 0.0, 0.0}
+	tmpBlock.scale = mgl32.Vec3{1.0, 1.0, 1.0}
+	tmpBlock.color = mgl32.Vec4{0.1, 1.0, 0.1, 1.0}
+	game.worldBlocks[0] = tmpBlock
 
 	// world block 2
-	game.worldBlocks[1].pos = mgl32.Vec3{-5.0, 0.0, 0.0}
-	game.worldBlocks[1].scale = mgl32.Vec3{2.0, 2.0, 2.0}
-	game.worldBlocks[1].color = mgl32.Vec4{1.0, 0.1, 0.1, 1.0}
+	tmpBlock = new(block)
+	tmpBlock.pos = mgl32.Vec3{-5.0, 0.0, 0.0}
+	tmpBlock.scale = mgl32.Vec3{2.0, 2.0, 2.0}
+	tmpBlock.color = mgl32.Vec4{1.0, 0.1, 0.1, 1.0}
+	game.worldBlocks[1] = tmpBlock
 
 	// world block 3
-	game.worldBlocks[2].pos = mgl32.Vec3{0.0, 0.0, -5.0}
-	game.worldBlocks[2].scale = mgl32.Vec3{2.0, 1.0, 2.0}
-	game.worldBlocks[2].color = mgl32.Vec4{0.1, 0.1, 1.0, 1.0}
+	tmpBlock = new(block)
+	tmpBlock.pos = mgl32.Vec3{0.0, 0.0, -5.0}
+	tmpBlock.scale = mgl32.Vec3{2.0, 1.0, 2.0}
+	tmpBlock.color = mgl32.Vec4{0.1, 0.1, 1.0, 1.0}
+	game.worldBlocks[2] = tmpBlock
 
-	game.camera.pos = mgl32.Vec3{2.0, 0.0, -6.0}
+	game.camera = new(camera)
 	game.camera.lookAt = mgl32.Vec3{0.0, 0.0, 0.0}
+	game.camera.relPos = mgl32.Vec3{2.0, 0.0, -6.0}
 	game.camera.up = mgl32.Vec3{0.0, 1.0, 0.0}
 
 	return game, nil
 }
 
 // Update updates the game models
-func (game *Game) Update(dt, dx, dy, dz float32) {
-	game.camera.pos = game.camera.pos.Add(mgl32.Vec3{dx, dy, dz})
-	game.camera.lookAt = game.camera.lookAt.Add(mgl32.Vec3{dx, 0.0, dz})
-	game.playerBlock.pos = game.playerBlock.pos.Add(mgl32.Vec3{dx, 0.0, dz})
+func (game *Game) Update(dt float32, inputs map[GameInput]bool) {
+	game.updatePlayerBlock(dt, inputs)
+	game.updateCamera(dt, inputs)
 
+	// newPlayerPos := game.playerBlock.pos.Add(mgl32.Vec3{dx, 0.0, dz})
+	// game.playerBlock.pos = newPlayerPos
+	// game.camera.pos = game.camera.pos.Add(mgl32.Vec3{dx, dy, dz})
+	// game.camera.lookAt = game.camera.lookAt.Add(mgl32.Vec3{dx, 0.0, dz})
+
+	eyePos := game.camera.getEyePos()
 	game.Log = fmt.Sprintf(
-		"FPS: %.2f\tCamera: (x:%.2f, y:%.2f, z:%.2f)\tCameraLookAt: (x:%.2f, y:%.2f, z:%.2f)\tPlayer:(x:%.2f, y:%.2f, z:%.2f)",
+		"FPS: %.2f\tCamera: (x:%.2f, y:%.2f, z:%.2f)\tPlayer: (x:%.2f, y:%.2f, z:%.2f)\tPlayer:(x:%.2f, y:%.2f, z:%.2f)",
 		1000.0/dt,
-		game.camera.pos.X(),
-		game.camera.pos.Y(),
-		game.camera.pos.Z(),
+		eyePos.X(),
+		eyePos.Y(),
+		eyePos.Z(),
 		game.camera.lookAt.X(),
 		game.camera.lookAt.Y(),
 		game.camera.lookAt.Z(),
@@ -139,6 +186,48 @@ func (game *Game) Update(dt, dx, dy, dz float32) {
 	)
 }
 
+func (game *Game) updatePlayerBlock(dt float32, inputs map[GameInput]bool) {
+	player := game.playerBlock
+
+	var vz, vx float32
+	if inputs[GameInputPlayerMoveForward] {
+		vz = playerSpeed
+	} else if inputs[GameInputPlayerMoveBack] {
+		vz = -1 * playerSpeed
+	}
+	if inputs[GameInputPlayerMoveLeft] {
+		vx = playerSpeed
+	} else if inputs[GameInputPlayerMoveRight] {
+		vx = -1 * playerSpeed
+	}
+
+	player.velocity = mgl32.Vec3{vx, 0.0, vz}
+	player.pos = player.pos.Add(player.velocity.Mul(dt / 1000.0))
+
+	// process collisions
+}
+
+func (game *Game) updateCamera(dt float32, inputs map[GameInput]bool) {
+	camera := game.camera
+	player := game.playerBlock
+
+	var dy, dr float32
+	if inputs[GameInputCameraMoveUp] {
+		dy = cameraSpeed / 1000.0
+	} else if inputs[GameInputCameraMoveDown] {
+		dy = -1 * cameraSpeed / 1000.0
+	}
+	if inputs[GameInputCameraRotateLeft] {
+		dr = cameraSpeed / 1000.0
+	} else if inputs[GameInputCameraRotateRight] {
+		dr = -1 * cameraSpeed / 1000.0
+	}
+
+	camera.lookAt = player.pos
+	camera.relPos = camera.relPos.Add(mgl32.Vec3{0.0, dy, 0.0})
+	camera.relPos = mgl32.HomogRotate3DY(dr).Mul4x1(camera.relPos.Vec4(1.0)).Vec3()
+}
+
 // Render renders the frame
 func (game *Game) Render() {
 	if err := game.gl.ClearScreen(0.0, 0.0, 0.0); err != nil {
@@ -146,7 +235,7 @@ func (game *Game) Render() {
 	}
 
 	camera := game.camera
-	viewMatrix := mgl32.LookAtV(camera.pos, camera.lookAt, camera.up)
+	viewMatrix := mgl32.LookAtV(camera.getEyePos(), camera.lookAt, camera.up)
 
 	// Render player
 	if err := game.renderBlock(game.playerBlock, viewMatrix); err != nil {
@@ -161,7 +250,7 @@ func (game *Game) Render() {
 	}
 }
 
-func (game *Game) renderBlock(block block, viewMatrix mgl32.Mat4) error {
+func (game *Game) renderBlock(block *block, viewMatrix mgl32.Mat4) error {
 	scaleMatrix := mgl32.Scale3D(block.scale.X(), block.scale.Y(), block.scale.Z())
 	translateMatrix := mgl32.Translate3D(block.pos.X(), block.pos.Y(), block.pos.Z())
 
