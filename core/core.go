@@ -94,17 +94,17 @@ func NewGame(glCtx GlContext) (*Game, error) {
 	// block 1
 	game.blocks[0].pos = mgl32.Vec3{3.0, 0.0, 0.0}
 	game.blocks[0].scale = mgl32.Vec3{1.0, 1.0, 1.0}
-	game.blocks[0].color = mgl32.Vec4{0.5, 1.0, 0.5, 1.0}
+	game.blocks[0].color = mgl32.Vec4{0.1, 1.0, 0.1, 1.0}
 
 	// block 2
 	game.blocks[1].pos = mgl32.Vec3{-3.0, 0.0, 0.0}
 	game.blocks[1].scale = mgl32.Vec3{1.0, 1.0, 1.0}
-	game.blocks[1].color = mgl32.Vec4{1.0, 0.5, 0.5, 1.0}
+	game.blocks[1].color = mgl32.Vec4{1.0, 0.1, 0.1, 1.0}
 
 	// block 3
 	game.blocks[2].pos = mgl32.Vec3{0.0, 0.0, -3.0}
 	game.blocks[2].scale = mgl32.Vec3{1.0, 1.0, 1.0}
-	game.blocks[2].color = mgl32.Vec4{0.5, 0.5, 1.0, 1.0}
+	game.blocks[2].color = mgl32.Vec4{0.1, 0.1, 1.0, 1.0}
 
 	game.camera.pos = mgl32.Vec3{0.0, 0.0, -6.0}
 	game.camera.lookAt = mgl32.Vec3{0.0, 0.0, 0.0}
@@ -128,7 +128,7 @@ func (game *Game) Update(dt, dx, dy, dz float32) {
 
 // Render renders the frame
 func (game *Game) Render() {
-	if err := game.gl.ClearScreen(1.0, 1.0, 1.0); err != nil {
+	if err := game.gl.ClearScreen(0.0, 0.0, 0.0); err != nil {
 		panic(err)
 	}
 
@@ -272,13 +272,13 @@ var blockVertShaderCode = `
 		vec4 vertPos = mvMatrix * vec4(position, 1.);
 		gl_Position = pMatrix * vertPos;
 
-		vec3 ambient = 0.3 * color.rgb;
+		vec3 ambient = 0.4 * color.rgb;
 
 		vec3 lightPos = vec3(1.0, 1.0, 1.0);
 		vec3 transformedLight = normalize(lightPos - vertPos.xyz);
 		vec3 transformedNorm = normalize(vec3(normMatrix * vec4(normal, 0.0)));
 		float lambert = max(dot(transformedNorm, transformedLight), 0.0);
-		vec3 diffuse = lambert * 0.6 * color.rgb;
+		vec3 diffuse = lambert * 0.7 * color.rgb;
 
 		vColor = ambient + diffuse;
 	}	
