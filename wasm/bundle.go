@@ -46,27 +46,14 @@ func main() {
 		dt := now - lastRenderTime
 		lastRenderTime = now
 
-		var dx, dz, dpitch, dyaw, ddistance float32
-
-		if isKeyDownMap["KeyA"] {
-			ddistance = 0.1
-		}
-		if isKeyDownMap["KeyS"] {
-			ddistance = -0.1
-		}
+		var dx, dy, dz float32
 
 		if isKeyDownMap["ControlLeft"] {
 			if isKeyDownMap["ArrowUp"] {
-				dpitch = 0.1
+				dy = 0.1
 			}
 			if isKeyDownMap["ArrowDown"] {
-				dpitch = -0.1
-			}
-			if isKeyDownMap["ArrowLeft"] {
-				dyaw = 0.1
-			}
-			if isKeyDownMap["ArrowRight"] {
-				dyaw = -0.1
+				dy = -0.1
 			}
 		} else {
 			if isKeyDownMap["ArrowUp"] {
@@ -83,7 +70,7 @@ func main() {
 			}
 		}
 
-		game.Update(dt, dx, 0.0, dz, dpitch, dyaw, ddistance)
+		game.Update(dt, dx, dy, dz)
 		game.Render()
 
 		gl.DocumentEl.Call("getElementById", "game_log").Set("innerHTML", game.Log)

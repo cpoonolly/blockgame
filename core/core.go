@@ -31,10 +31,9 @@ type block struct {
 }
 
 type camera struct {
-	lookAt   mgl32.Vec3
-	pitch    float32
-	yaw      float32
-	distance float32
+	pos    mgl32.Vec3
+	lookAt mgl32.Vec3
+	up     mgl32.Vec3
 }
 
 // Game represents a game
@@ -107,30 +106,23 @@ func NewGame(glCtx GlContext) (*Game, error) {
 	game.blocks[2].scale = mgl32.Vec3{1.0, 1.0, 1.0}
 	game.blocks[2].color = mgl32.Vec4{0.5, 0.5, 1.0, 1.0}
 
+	game.camera.pos = mgl32.Vec3{0.0, 0.0, -6.0}
 	game.camera.lookAt = mgl32.Vec3{0.0, 0.0, 0.0}
-	game.camera.distance = -4.0
-	game.camera.pitch = 0.0
-	game.camera.yaw = 0.0
+	game.camera.up = mgl32.Vec3{0.0, 1.0, 0.0}
 
 	return game, nil
 }
 
 // Update updates the game models
-func (game *Game) Update(dt, dx, dy, dz, dpitch, dyaw, ddistance float32) {
-	game.camera.lookAt = game.camera.lookAt.Add(mgl32.Vec3{dx, dy, dz})
-	game.camera.pitch += dpitch
-	game.camera.yaw += dyaw
-	game.camera.distance += ddistance
+func (game *Game) Update(dt, dx, dy, dz float32) {
+	game.camera.pos = game.camera.pos.Add(mgl32.Vec3{dx, dy, dz})
 
 	game.Log = fmt.Sprintf(
-		"FPS: %f\tCamera: (x: %f, y: %f, z: %f, pitch: %f, yaw: %f, distance: %f)",
+		"FPS: %f\tCamera: (x: %f, y: %f, z: %f)",
 		1000.0/dt,
-		game.camera.lookAt.X(),
-		game.camera.lookAt.Y(),
-		game.camera.lookAt.Z(),
-		game.camera.pitch,
-		game.camera.yaw,
-		game.camera.distance,
+		game.camera.pos.X(),
+		game.camera.pos.Y(),
+		game.camera.pos.Z(),
 	)
 }
 
@@ -140,12 +132,8 @@ func (game *Game) Render() {
 		panic(err)
 	}
 
-	viewMatrix := mgl32.Ident4() // mgl32.LookAtV(mgl32.Vec3{-4.0, 2.0, -10.0}, mgl32.Vec3{0.0, 0.0, 0.0}, mgl32.Vec3{0.0, 1.0, 0.0})
-	viewMatrix = viewMatrix.Mul4(mgl32.Translate3D(0.0, 0.0, game.camera.distance))
-	viewMatrix = viewMatrix.Mul4(mgl32.HomogRotate3DX(game.camera.pitch))
-	viewMatrix = viewMatrix.Mul4(mgl32.Translate3D(game.camera.lookAt.X(), 0.0, game.camera.lookAt.Z()))
-	viewMatrix = viewMatrix.Mul4(mgl32.HomogRotate3DY(game.camera.yaw))
-	// viewMatrix = viewMatrix.Mul4(mgl32.HomogRotate3DX(camera.))
+	camera := game.camera
+	viewMatrix := mgl32.LookAtV(camera.pos, camera.lookAt, camera.up)
 
 	for _, block := range game.blocks {
 		if err := game.renderBlock(block, viewMatrix); err != nil {
@@ -278,28 +266,28 @@ var blockVertShaderCode = `
 	uniform mat4 normMatrix;
 	uniform vec4 color;
 
-	varying highp vec3 vLighting;
 	varying highp vec3 vColor;
 
 	void main(void) {
-		gl_Position = pMatrix * mvMatrix * vec4(position, 1.);
+		vec4 vertPos = mvMatrix * vec4(position, 1.);
+		gl_Position = pMatrix * vertPos;
 
-		highp vec3 ambientLight = vec3(0.3, 0.3, 0.3);
-		highp vec3 directionalLightColor = vec3(.5, .5, .5);
-		highp vec3 directionalVector = normalize(vec3(0.85, 0.8, 0.75));
-		highp vec4 transformedNormal = normMatrix * vec4(normal, 1.0);
-		highp float directional = max(dot(transformedNormal.xyz, directionalVector), 0.0);
-		vLighting = ambientLight + (directionalLightColor * directional);
+		vec3 ambient = 0.3 * color.rgb;
 
-		vColor = color.rgb;
+		vec3 lightPos = vec3(1.0, 1.0, 1.0);
+		vec3 transformedLight = normalize(lightPos - vertPos.xyz);
+		vec3 transformedNorm = normalize(vec3(normMatrix * vec4(normal, 0.0)));
+		float lambert = max(dot(transformedNorm, transformedLight), 0.0);
+		vec3 diffuse = lambert * 0.6 * color.rgb;
+
+		vColor = ambient + diffuse;
 	}	
 `
 
 var blockFragShaderCode = `
-	varying highp vec3 vLighting;
 	varying highp vec3 vColor;
 
 	void main(void) {
-		gl_FragColor = vec4(vColor * vLighting, 1.);
+		gl_FragColor = vec4(vColor, 1.);
 	}
 `
