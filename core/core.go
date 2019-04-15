@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"github.com/go-gl/mathgl/mgl32"
+	"math"
 )
 
 // ShaderProgram generic interface for shader returned by GlContext below
@@ -162,28 +163,25 @@ func NewGame(glCtx GlContext) (*Game, error) {
 
 // Update updates the game models
 func (game *Game) Update(dt float32, inputs map[GameInput]bool) {
-	game.updatePlayerBlock(dt, inputs)
-	game.updateCamera(dt, inputs)
-
-	// newPlayerPos := game.playerBlock.pos.Add(mgl32.Vec3{dx, 0.0, dz})
-	// game.playerBlock.pos = newPlayerPos
-	// game.camera.pos = game.camera.pos.Add(mgl32.Vec3{dx, dy, dz})
-	// game.camera.lookAt = game.camera.lookAt.Add(mgl32.Vec3{dx, 0.0, dz})
-
-	eyePos := game.camera.getEyePos()
+	player := game.playerBlock
+	camera := game.camera
+	eyePos := camera.getEyePos()
 	game.Log = fmt.Sprintf(
 		"FPS: %.2f\tCamera: (x:%.2f, y:%.2f, z:%.2f)\tPlayer: (x:%.2f, y:%.2f, z:%.2f)\tPlayer:(x:%.2f, y:%.2f, z:%.2f)",
 		1000.0/dt,
 		eyePos.X(),
 		eyePos.Y(),
 		eyePos.Z(),
-		game.camera.lookAt.X(),
-		game.camera.lookAt.Y(),
-		game.camera.lookAt.Z(),
-		game.playerBlock.pos.X(),
-		game.playerBlock.pos.Y(),
-		game.playerBlock.pos.Z(),
+		camera.lookAt.X(),
+		camera.lookAt.Y(),
+		camera.lookAt.Z(),
+		player.pos.X(),
+		player.pos.Y(),
+		player.pos.Z(),
 	)
+
+	game.updatePlayerBlock(dt, inputs)
+	game.updateCamera(dt, inputs)
 }
 
 func (game *Game) updatePlayerBlock(dt float32, inputs map[GameInput]bool) {
@@ -202,9 +200,84 @@ func (game *Game) updatePlayerBlock(dt float32, inputs map[GameInput]bool) {
 	}
 
 	player.velocity = mgl32.Vec3{vx, 0.0, vz}
-	player.pos = player.pos.Add(player.velocity.Mul(dt / 1000.0))
+	game.Log += fmt.Sprintf("<br/>input - vx: %.2f\tvz: %.2f\n", player.velocity.X(), player.velocity.Z())
+	game.processBlockMotion(dt, player)
+}
 
-	// process collisions
+func (game *Game) processBlockMotion(dt float32, movingBlock *block) {
+	velocityLeft := float32(math.Max(0.0, float64(movingBlock.velocity.X())))
+	velocityRight := float32(math.Max(0.0, float64(-1*movingBlock.velocity.X())))
+	velocityForward := float32(math.Max(0.0, float64(movingBlock.velocity.Z())))
+	velocityBackward := float32(math.Max(0.0, float64(-1*movingBlock.velocity.Z())))
+
+	for _, worldBlock := range game.worldBlocks {
+		movingBlockLeft := movingBlock.pos.X() + movingBlock.scale.X()
+		worldBlockRight := worldBlock.pos.X() - worldBlock.scale.X()
+		if movingBlockLeft+velocityLeft < worldBlockRight {
+			continue
+		}
+
+		movingBlockRight := movingBlock.pos.X() - movingBlock.scale.X()
+		worldBlockLeft := worldBlock.pos.X() + worldBlock.scale.X()
+		if movingBlockRight+velocityRight > worldBlockLeft {
+			continue
+		}
+
+		movingBlockFront := movingBlock.pos.Z() + movingBlock.scale.Z()
+		worldBlockBack := worldBlock.pos.Z() - worldBlock.scale.Z()
+		if movingBlockFront+velocityForward < worldBlockBack {
+			continue
+		}
+
+		movingBlockBack := movingBlock.pos.Z() - movingBlock.scale.Z()
+		worldBlockFront := worldBlock.pos.Z() + worldBlock.scale.Z()
+		if movingBlockBack+velocityBackward > worldBlockFront {
+			continue
+		}
+
+		game.Log += fmt.Sprintf("<br/>collision detected")
+
+		// find the axis that collides later in time and adjust it
+		var timeOfXAxisCollision, timeOfZAxisCollision float32
+		var distanceToCollisionX, distanceToCollisionZ float32
+
+		if velocityLeft > velocityRight {
+			distanceToCollisionX = movingBlockLeft - worldBlockRight
+			timeOfXAxisCollision = dt * distanceToCollisionX / velocityLeft
+		} else {
+			distanceToCollisionX = movingBlockRight - worldBlockLeft
+			timeOfXAxisCollision = dt * distanceToCollisionX / velocityRight
+		}
+
+		if velocityForward > velocityBackward {
+			distanceToCollisionZ = movingBlockFront - worldBlockBack
+			timeOfZAxisCollision = dt * distanceToCollisionZ / velocityForward
+		} else {
+			distanceToCollisionZ = movingBlockBack - worldBlockFront
+			timeOfZAxisCollision = dt * distanceToCollisionZ / velocityBackward
+		}
+
+		if timeOfXAxisCollision >= timeOfZAxisCollision {
+			if velocityForward > velocityBackward {
+				velocityForward = distanceToCollisionZ
+			} else {
+				velocityBackward = distanceToCollisionZ
+			}
+		}
+
+		if timeOfZAxisCollision >= timeOfXAxisCollision {
+			if velocityLeft > velocityRight {
+				velocityLeft = distanceToCollisionX
+			} else {
+				velocityRight = distanceToCollisionX
+			}
+		}
+	}
+
+	movingBlock.velocity = mgl32.Vec3{velocityLeft - velocityRight, 0.0, velocityForward - velocityBackward}
+	game.Log += fmt.Sprintf("<br/>vx: %.2f\tvz: %.2f\n", movingBlock.velocity.X(), movingBlock.velocity.Z())
+	movingBlock.pos = movingBlock.pos.Add(movingBlock.velocity.Mul(dt / 1000.0))
+	game.Log += fmt.Sprintf("<br/>x: %.2f\tz: %.2f\n", movingBlock.pos.X(), movingBlock.pos.Z())
 }
 
 func (game *Game) updateCamera(dt float32, inputs map[GameInput]bool) {
