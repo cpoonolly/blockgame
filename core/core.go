@@ -268,7 +268,7 @@ func (game *Game) processBlockMotion(dt float32, movingBlock *block) {
 
 		if dRight > 0 {
 			distanceToCollisionX = movingBlockRight - worldBlockLeft
-			timeOfXAxisCollision = f32Abs(dt * distanceToCollisionX / dRight)
+			timeOfXAxisCollision = dt * distanceToCollisionX / dRight
 		}
 
 		if dForward > 0 {
@@ -278,7 +278,7 @@ func (game *Game) processBlockMotion(dt float32, movingBlock *block) {
 
 		if dBackward > 0 {
 			distanceToCollisionZ = movingBlockBack - worldBlockFront
-			timeOfZAxisCollision = f32Abs(dt * distanceToCollisionZ / dBackward)
+			timeOfZAxisCollision = dt * distanceToCollisionZ / dBackward
 		}
 
 		fmt.Printf("timeOfXAxisCollision: %.5f\ttimeOfZAxisCollision: %.5f\n", timeOfXAxisCollision, timeOfZAxisCollision)
