@@ -145,7 +145,30 @@ func NewGame(glCtx GlContext) (*Game, error) {
 	game.playerBlock.scale = mgl32.Vec3{0.5, 0.5, 0.5}
 	game.playerBlock.color = mgl32.Vec4{0.9, 0.9, 0.9, 1.0}
 
-	game.worldBlocks = make([]*block, 0)
+	// generate world blocks
+	game.worldBlocks = make([]*block, 3)
+	var tmpBlock *block
+
+	// world block 1
+	tmpBlock = new(block)
+	tmpBlock.pos = mgl32.Vec3{3.0, 0.0, 0.0}
+	tmpBlock.scale = mgl32.Vec3{1.0, 1.0, 1.0}
+	tmpBlock.color = mgl32.Vec4{0.1, 1.0, 0.1, 1.0}
+	game.worldBlocks[0] = tmpBlock
+
+	// world block 2
+	tmpBlock = new(block)
+	tmpBlock.pos = mgl32.Vec3{-5.0, 0.0, 0.0}
+	tmpBlock.scale = mgl32.Vec3{2.0, 2.0, 2.0}
+	tmpBlock.color = mgl32.Vec4{1.0, 0.1, 0.1, 1.0}
+	game.worldBlocks[1] = tmpBlock
+
+	// world block 3
+	tmpBlock = new(block)
+	tmpBlock.pos = mgl32.Vec3{0.0, 0.0, -5.0}
+	tmpBlock.scale = mgl32.Vec3{4.0, 1.0, 4.0}
+	tmpBlock.color = mgl32.Vec4{0.1, 0.1, 1.0, 1.0}
+	game.worldBlocks[2] = tmpBlock
 
 	game.camera = new(camera)
 	game.camera.lookAt = mgl32.Vec3{0.0, 0.0, 0.0}
@@ -161,14 +184,11 @@ func (game *Game) Update(dt float32, inputs map[GameInput]bool) {
 	camera := game.camera
 	eyePos := camera.getEyePos()
 	game.Log = fmt.Sprintf(
-		"FPS: %.2f\tCamera: (x:%.2f, y:%.2f, z:%.2f)\tPlayer: (x:%.2f, y:%.2f, z:%.2f)\tPlayer:(x:%.2f, y:%.2f, z:%.2f)",
+		"FPS: %.2f\tCamera: (x:%.2f, y:%.2f, z:%.2f)\tPlayer: (x:%.2f, y:%.2f, z:%.2f)",
 		1000.0/dt,
 		eyePos.X(),
 		eyePos.Y(),
 		eyePos.Z(),
-		camera.lookAt.X(),
-		camera.lookAt.Y(),
-		camera.lookAt.Z(),
 		player.pos.X(),
 		player.pos.Y(),
 		player.pos.Z(),
@@ -199,7 +219,7 @@ func (game *Game) updatePlayerBlock(dt float32, inputs map[GameInput]bool) {
 	}
 
 	player.velocity = mgl32.Vec3{vx, vy, vz}
-	game.Log += fmt.Sprintf("<br/>input - vx: %.2f\tvy: %.2f\tvz: %.2f\n", player.velocity.X(), player.velocity.Y(), player.velocity.Z())
+	game.Log += fmt.Sprintf("<br/>Player Velocity: (vx: %.2f\tvy: %.2f\tvz: %.2f)\n", player.velocity.X(), player.velocity.Y(), player.velocity.Z())
 	game.processBlockMotion(dt, player)
 }
 
