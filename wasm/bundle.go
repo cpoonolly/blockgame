@@ -47,10 +47,10 @@ func main() {
 		lastRenderTime = now
 
 		inputMap := map[core.GameInput]bool{
-			core.GameInputCameraMoveUp:      false,
-			core.GameInputCameraMoveDown:    false,
 			core.GameInputCameraRotateLeft:  false,
 			core.GameInputCameraRotateRight: false,
+			core.GameInputPlayerMoveUp:      false,
+			core.GameInputPlayerMoveDown:    false,
 			core.GameInputPlayerMoveForward: false,
 			core.GameInputPlayerMoveBack:    false,
 			core.GameInputPlayerMoveLeft:    false,
@@ -58,12 +58,6 @@ func main() {
 		}
 
 		if isKeyDownMap["ControlLeft"] {
-			if isKeyDownMap["ArrowUp"] {
-				inputMap[core.GameInputCameraMoveUp] = true
-			}
-			if isKeyDownMap["ArrowDown"] {
-				inputMap[core.GameInputCameraMoveDown] = true
-			}
 			if isKeyDownMap["ArrowLeft"] {
 				inputMap[core.GameInputCameraRotateLeft] = true
 			}
@@ -71,6 +65,12 @@ func main() {
 				inputMap[core.GameInputCameraRotateRight] = true
 			}
 		} else {
+			if isKeyDownMap["KeyA"] {
+				inputMap[core.GameInputPlayerMoveUp] = true
+			}
+			if isKeyDownMap["KeyS"] {
+				inputMap[core.GameInputPlayerMoveDown] = true
+			}
 			if isKeyDownMap["ArrowUp"] {
 				inputMap[core.GameInputPlayerMoveForward] = true
 			}

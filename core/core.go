@@ -67,10 +67,10 @@ const (
 	GameInputPlayerMoveLeft
 	// GameInputPlayerMoveRight input to move the player right
 	GameInputPlayerMoveRight
-	// GameInputCameraMoveUp input to move camera up relative to player
-	GameInputCameraMoveUp
-	// GameInputCameraMoveDown input to move camera down relative to it's lookAt point
-	GameInputCameraMoveDown
+	// GameInputPlayerMoveUp input to move the player up
+	GameInputPlayerMoveUp
+	// GameInputPlayerMoveDown input to move the player down
+	GameInputPlayerMoveDown
 	// GameInputCameraRotateLeft input to rotate camera left relative to it's lookAt point
 	GameInputCameraRotateLeft
 	// GameInputCameraRotateRight input to rotate camera right relative to it's lookAt point
@@ -168,7 +168,7 @@ func NewGame(glCtx GlContext) (*Game, error) {
 
 	game.camera = new(camera)
 	game.camera.lookAt = mgl32.Vec3{0.0, 0.0, 0.0}
-	game.camera.relPos = mgl32.Vec3{2.0, 0.0, -6.0}
+	game.camera.relPos = mgl32.Vec3{2.0, 10.0, -6.0}
 	game.camera.up = mgl32.Vec3{0.0, 1.0, 0.0}
 
 	return game, nil
@@ -200,7 +200,12 @@ func (game *Game) Update(dt float32, inputs map[GameInput]bool) {
 func (game *Game) updatePlayerBlock(dt float32, inputs map[GameInput]bool) {
 	player := game.playerBlock
 
-	var vz, vx float32
+	var vx, vy, vz float32
+	if inputs[GameInputPlayerMoveUp] {
+		vy = playerSpeed
+	} else if inputs[GameInputPlayerMoveDown] {
+		vy = -1 * playerSpeed
+	}
 	if inputs[GameInputPlayerMoveForward] {
 		vz = playerSpeed
 	} else if inputs[GameInputPlayerMoveBack] {
@@ -212,37 +217,46 @@ func (game *Game) updatePlayerBlock(dt float32, inputs map[GameInput]bool) {
 		vx = -1 * playerSpeed
 	}
 
-	player.velocity = mgl32.Vec3{vx, 0.0, vz}
-	game.Log += fmt.Sprintf("<br/>input - vx: %.2f\tvz: %.2f\n", player.velocity.X(), player.velocity.Z())
+	player.velocity = mgl32.Vec3{vx, vy, vz}
+	game.Log += fmt.Sprintf("<br/>input - vx: %.2f\tvy: %.2f\tvz: %.2f\n", player.velocity.X(), player.velocity.Y(), player.velocity.Z())
 	game.processBlockMotion(dt, player)
 }
 
 func (game *Game) processBlockMotion(dt float32, movingBlock *block) {
 	dLeft := dt / 1000 * f32Max(0.0, movingBlock.velocity.X())
 	dRight := dt / 1000 * f32Max(0.0, -1*movingBlock.velocity.X())
+	dUp := dt / 1000 * f32Max(0.0, movingBlock.velocity.Y())
+	dDown := dt / 1000 * f32Max(0.0, -1*movingBlock.velocity.Y())
 	dForward := dt / 1000 * f32Max(0.0, movingBlock.velocity.Z())
 	dBackward := dt / 1000 * f32Max(0.0, -1*movingBlock.velocity.Z())
 
 	movingBlockLeft := movingBlock.pos.X() + movingBlock.scale.X()
 	movingBlockRight := movingBlock.pos.X() - movingBlock.scale.X()
+	movingBlockTop := movingBlock.pos.Y() + movingBlock.scale.Y()
+	movingBlockBottom := movingBlock.pos.Y() - movingBlock.scale.Y()
 	movingBlockFront := movingBlock.pos.Z() + movingBlock.scale.Z()
 	movingBlockBack := movingBlock.pos.Z() - movingBlock.scale.Z()
 
 	hasCollided := false
 
 	for blockNum, worldBlock := range game.worldBlocks {
-		worldBlockRight := worldBlock.pos.X() - worldBlock.scale.X()
-		if movingBlockLeft+dLeft <= worldBlockRight {
-			continue
-		}
-
 		worldBlockLeft := worldBlock.pos.X() + worldBlock.scale.X()
 		if movingBlockRight-dRight >= worldBlockLeft {
 			continue
 		}
 
-		worldBlockBack := worldBlock.pos.Z() - worldBlock.scale.Z()
-		if movingBlockFront+dForward <= worldBlockBack {
+		worldBlockRight := worldBlock.pos.X() - worldBlock.scale.X()
+		if movingBlockLeft+dLeft <= worldBlockRight {
+			continue
+		}
+
+		worldBlockTop := worldBlock.pos.Y() + worldBlock.scale.Y()
+		if movingBlockBottom-dDown >= worldBlockTop {
+			continue
+		}
+
+		worldBlockBottom := worldBlock.pos.Y() - worldBlock.scale.Y()
+		if movingBlockTop+dUp <= worldBlockBottom {
 			continue
 		}
 
@@ -251,15 +265,20 @@ func (game *Game) processBlockMotion(dt float32, movingBlock *block) {
 			continue
 		}
 
+		worldBlockBack := worldBlock.pos.Z() - worldBlock.scale.Z()
+		if movingBlockFront+dForward <= worldBlockBack {
+			continue
+		}
+
 		hasCollided = true
 		fmt.Printf("collision detected - block %d\n", blockNum)
-		fmt.Printf("block1: left: %.5f\tright: %.5f\tfront: %.5f\tback: %.5f\n", movingBlockLeft, movingBlockRight, movingBlockFront, movingBlockBack)
-		fmt.Printf("block2: left: %.5f\tright: %.5f\tfront: %.5f\tback: %.5f\n", worldBlockLeft, worldBlockRight, worldBlockFront, worldBlockBack)
-		fmt.Printf("dForward: %.5f\tdBackward: %.5f\tdLeft: %.5f\tdRight: %.5f\n", dForward, dBackward, dLeft, dRight)
+		fmt.Printf("block1: left: %.5f\tright: %.5f\ttop: %.5f,\tbottom: %.5f,\tfront: %.5f\tback: %.5f\n", movingBlockLeft, movingBlockRight, movingBlockTop, movingBlockBottom, movingBlockFront, movingBlockBack)
+		fmt.Printf("block2: left: %.5f\tright: %.5f\ttop: %.5f,\tbottom: %.5f,\tfront: %.5f\tback: %.5f\n", worldBlockLeft, worldBlockRight, worldBlockTop, worldBlockBottom, worldBlockFront, worldBlockBack)
+		fmt.Printf("dLeft: %.5f\tdRight: %.5f\tdUp: %.5f\tdDown: %.5f\tdForward: %.5f\tdBackward: %.5f\n", dLeft, dRight, dUp, dDown, dForward, dBackward)
 
 		// find the axis that collides later in time and adjust it
-		var timeOfXAxisCollision, timeOfZAxisCollision float32
-		var distanceToCollisionX, distanceToCollisionZ float32
+		var timeOfXAxisCollision, timeOfYAxisCollision, timeOfZAxisCollision float32
+		var distanceToCollisionX, distanceToCollisionY, distanceToCollisionZ float32
 
 		if dLeft > 0 {
 			distanceToCollisionX = worldBlockRight - movingBlockLeft
@@ -269,6 +288,16 @@ func (game *Game) processBlockMotion(dt float32, movingBlock *block) {
 		if dRight > 0 {
 			distanceToCollisionX = movingBlockRight - worldBlockLeft
 			timeOfXAxisCollision = dt * distanceToCollisionX / dRight
+		}
+
+		if dUp > 0 {
+			distanceToCollisionY = worldBlockBottom - movingBlockTop
+			timeOfYAxisCollision = dt * distanceToCollisionY / dUp
+		}
+
+		if dDown > 0 {
+			distanceToCollisionY = movingBlockBottom - worldBlockTop
+			timeOfYAxisCollision = dt * distanceToCollisionY / dDown
 		}
 
 		if dForward > 0 {
@@ -281,9 +310,9 @@ func (game *Game) processBlockMotion(dt float32, movingBlock *block) {
 			timeOfZAxisCollision = dt * distanceToCollisionZ / dBackward
 		}
 
-		fmt.Printf("timeOfXAxisCollision: %.5f\ttimeOfZAxisCollision: %.5f\n", timeOfXAxisCollision, timeOfZAxisCollision)
-		fmt.Printf("distanceToCollisionX: %.5f\tdistanceToCollisionZ: %.5f\n", distanceToCollisionX, distanceToCollisionZ)
-		if timeOfXAxisCollision >= timeOfZAxisCollision {
+		fmt.Printf("timeOfXAxisCollision: %.5f\ttimeOfYAxisCollision: %.5f\ttimeOfZAxisCollision: %.5f\n", timeOfXAxisCollision, timeOfYAxisCollision, timeOfZAxisCollision)
+		fmt.Printf("distanceToCollisionX: %.5f\tdistanceToCollisionY: %.5f\tdistanceToCollisionZ: %.5f\n", distanceToCollisionX, distanceToCollisionY, distanceToCollisionZ)
+		if timeOfXAxisCollision >= timeOfYAxisCollision && timeOfXAxisCollision >= timeOfZAxisCollision {
 			if dLeft > dRight {
 				fmt.Println("collision - left side")
 				dLeft = distanceToCollisionX
@@ -293,7 +322,17 @@ func (game *Game) processBlockMotion(dt float32, movingBlock *block) {
 			}
 		}
 
-		if timeOfZAxisCollision >= timeOfXAxisCollision {
+		if timeOfYAxisCollision >= timeOfXAxisCollision && timeOfYAxisCollision >= timeOfZAxisCollision {
+			if dUp > dDown {
+				fmt.Println("collision - top side")
+				dUp = distanceToCollisionY
+			} else {
+				fmt.Println("collision - bottom side")
+				dDown = distanceToCollisionY
+			}
+		}
+
+		if timeOfZAxisCollision >= timeOfXAxisCollision && timeOfZAxisCollision >= timeOfYAxisCollision {
 			if dForward > dBackward {
 				fmt.Println("collision - front side")
 				dForward = distanceToCollisionZ
@@ -302,25 +341,23 @@ func (game *Game) processBlockMotion(dt float32, movingBlock *block) {
 				dBackward = distanceToCollisionZ
 			}
 		}
-
-		// dForward = f32Round(dForward, 2)
-		// dBackward = f32Round(dBackward, 2)
-		// dLeft = f32Round(dLeft, 2)
-		// dRight = f32Round(dRight, 2)
 	}
 
-	movingBlock.pos = movingBlock.pos.Add(mgl32.Vec3{dLeft - dRight, 0.0, dForward - dBackward})
+	movingBlock.pos = movingBlock.pos.Add(mgl32.Vec3{dLeft - dRight, dUp - dDown, dForward - dBackward})
 	movingBlock.pos[0] = f32Round(movingBlock.pos[0], 2)
+	movingBlock.pos[1] = f32Round(movingBlock.pos[1], 2)
 	movingBlock.pos[2] = f32Round(movingBlock.pos[2], 2)
 
 	if hasCollided {
-		newPosRight := movingBlock.pos.X() - movingBlock.scale.X()
 		newPosLeft := movingBlock.pos.X() + movingBlock.scale.X()
-		newPosBack := movingBlock.pos.Z() - movingBlock.scale.Z()
+		newPosRight := movingBlock.pos.X() - movingBlock.scale.X()
+		newPosTop := movingBlock.pos.Y() + movingBlock.scale.Y()
+		newPosBottom := movingBlock.pos.Y() - movingBlock.scale.Y()
 		newPosFront := movingBlock.pos.Z() + movingBlock.scale.Z()
+		newPosBack := movingBlock.pos.Z() - movingBlock.scale.Z()
 
-		fmt.Printf("dForward: %.5f\tdBackward: %.5f\tdLeft: %.5f\tdRight: %.5f\n", dForward, dBackward, dLeft, dRight)
-		fmt.Printf("new-block1: left: %.5f\tright: %.5f\tfront: %.5f\tback: %.5f\n", newPosLeft, newPosRight, newPosFront, newPosBack)
+		fmt.Printf("dLeft: %.5f\tdRight: %.5f\tdUp: %.5f\tdDown: %.5f\tdForward: %.5f\tdBackward: %.5f\n", dLeft, dRight, dUp, dDown, dForward, dBackward)
+		fmt.Printf("new-block1: left: %.5f\tright: %.5f\ttop: %.5f,\tbottom: %.5f,\tfront: %.5f\tback: %.5f\n", newPosLeft, newPosRight, newPosTop, newPosBottom, newPosFront, newPosBack)
 	}
 }
 
@@ -328,12 +365,7 @@ func (game *Game) updateCamera(dt float32, inputs map[GameInput]bool) {
 	camera := game.camera
 	player := game.playerBlock
 
-	var dy, dr float32
-	if inputs[GameInputCameraMoveUp] {
-		dy = cameraSpeed / 1000.0
-	} else if inputs[GameInputCameraMoveDown] {
-		dy = -1 * cameraSpeed / 1000.0
-	}
+	var dr float32
 	if inputs[GameInputCameraRotateLeft] {
 		dr = cameraSpeed / 1000.0
 	} else if inputs[GameInputCameraRotateRight] {
@@ -341,7 +373,6 @@ func (game *Game) updateCamera(dt float32, inputs map[GameInput]bool) {
 	}
 
 	camera.lookAt = player.pos
-	camera.relPos = camera.relPos.Add(mgl32.Vec3{0.0, dy, 0.0})
 	camera.relPos = mgl32.HomogRotate3DY(dr).Mul4x1(camera.relPos.Vec4(1.0)).Vec3()
 }
 
