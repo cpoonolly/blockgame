@@ -47,6 +47,8 @@ func main() {
 		lastRenderTime = now
 
 		inputMap := map[core.GameInput]bool{
+			core.GameInputCameraZoomIn:      false,
+			core.GameInputCameraZoomOut:     false,
 			core.GameInputCameraRotateLeft:  false,
 			core.GameInputCameraRotateRight: false,
 			core.GameInputPlayerMoveUp:      false,
@@ -58,6 +60,12 @@ func main() {
 		}
 
 		if isKeyDownMap["ControlLeft"] {
+			if isKeyDownMap["ArrowUp"] {
+				inputMap[core.GameInputCameraZoomIn] = true
+			}
+			if isKeyDownMap["ArrowDown"] {
+				inputMap[core.GameInputCameraZoomOut] = true
+			}
 			if isKeyDownMap["ArrowLeft"] {
 				inputMap[core.GameInputCameraRotateLeft] = true
 			}

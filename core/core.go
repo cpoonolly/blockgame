@@ -71,6 +71,10 @@ const (
 	GameInputPlayerMoveUp
 	// GameInputPlayerMoveDown input to move the player down
 	GameInputPlayerMoveDown
+	// GameInputCameraZoomIn input to zoom camera in
+	GameInputCameraZoomIn
+	// GameInputCameraZoomOut input to zoom camera out
+	GameInputCameraZoomOut
 	// GameInputCameraRotateLeft input to rotate camera left relative to it's lookAt point
 	GameInputCameraRotateLeft
 	// GameInputCameraRotateRight input to rotate camera right relative to it's lookAt point
@@ -141,30 +145,7 @@ func NewGame(glCtx GlContext) (*Game, error) {
 	game.playerBlock.scale = mgl32.Vec3{0.5, 0.5, 0.5}
 	game.playerBlock.color = mgl32.Vec4{0.9, 0.9, 0.9, 1.0}
 
-	// generate world blocks
-	game.worldBlocks = make([]*block, 3)
-	var tmpBlock *block
-
-	// world block 1
-	tmpBlock = new(block)
-	tmpBlock.pos = mgl32.Vec3{3.0, 0.0, 0.0}
-	tmpBlock.scale = mgl32.Vec3{1.0, 1.0, 1.0}
-	tmpBlock.color = mgl32.Vec4{0.1, 1.0, 0.1, 1.0}
-	game.worldBlocks[0] = tmpBlock
-
-	// world block 2
-	tmpBlock = new(block)
-	tmpBlock.pos = mgl32.Vec3{-5.0, 0.0, 0.0}
-	tmpBlock.scale = mgl32.Vec3{2.0, 2.0, 2.0}
-	tmpBlock.color = mgl32.Vec4{1.0, 0.1, 0.1, 1.0}
-	game.worldBlocks[1] = tmpBlock
-
-	// world block 3
-	tmpBlock = new(block)
-	tmpBlock.pos = mgl32.Vec3{0.0, 0.0, -5.0}
-	tmpBlock.scale = mgl32.Vec3{4.0, 1.0, 4.0}
-	tmpBlock.color = mgl32.Vec4{0.1, 0.1, 1.0, 1.0}
-	game.worldBlocks[2] = tmpBlock
+	game.worldBlocks = make([]*block, 0)
 
 	game.camera = new(camera)
 	game.camera.lookAt = mgl32.Vec3{0.0, 0.0, 0.0}
@@ -220,6 +201,30 @@ func (game *Game) updatePlayerBlock(dt float32, inputs map[GameInput]bool) {
 	player.velocity = mgl32.Vec3{vx, vy, vz}
 	game.Log += fmt.Sprintf("<br/>input - vx: %.2f\tvy: %.2f\tvz: %.2f\n", player.velocity.X(), player.velocity.Y(), player.velocity.Z())
 	game.processBlockMotion(dt, player)
+}
+
+func (game *Game) updateCamera(dt float32, inputs map[GameInput]bool) {
+	camera := game.camera
+	player := game.playerBlock
+
+	var dyaw float32
+	if inputs[GameInputCameraRotateLeft] {
+		dyaw = cameraSpeed / 1000.0
+	} else if inputs[GameInputCameraRotateRight] {
+		dyaw = -1 * cameraSpeed / 1000.0
+	}
+
+	var dzoom float32
+	if inputs[GameInputCameraZoomIn] {
+		dzoom = cameraSpeed / 1000.0
+	} else if inputs[GameInputCameraZoomOut] {
+		dzoom = -1 * cameraSpeed / 1000.0
+	}
+
+	camera.lookAt = player.pos
+	camera.relPos = camera.relPos.Add(mgl32.Vec3{0.0, dzoom, 0.0})
+	camera.relPos = mgl32.HomogRotate3DY(dyaw).Mul4x1(camera.relPos.Vec4(1.0)).Vec3()
+	camera.relPos = mgl32.Scale3D(1+(dzoom/10), 1+(dzoom/10), 1+(dzoom/10)).Mul4x1(camera.relPos.Vec4(1.0)).Vec3()
 }
 
 func (game *Game) processBlockMotion(dt float32, movingBlock *block) {
@@ -359,21 +364,6 @@ func (game *Game) processBlockMotion(dt float32, movingBlock *block) {
 		fmt.Printf("dLeft: %.5f\tdRight: %.5f\tdUp: %.5f\tdDown: %.5f\tdForward: %.5f\tdBackward: %.5f\n", dLeft, dRight, dUp, dDown, dForward, dBackward)
 		fmt.Printf("new-block1: left: %.5f\tright: %.5f\ttop: %.5f,\tbottom: %.5f,\tfront: %.5f\tback: %.5f\n", newPosLeft, newPosRight, newPosTop, newPosBottom, newPosFront, newPosBack)
 	}
-}
-
-func (game *Game) updateCamera(dt float32, inputs map[GameInput]bool) {
-	camera := game.camera
-	player := game.playerBlock
-
-	var dr float32
-	if inputs[GameInputCameraRotateLeft] {
-		dr = cameraSpeed / 1000.0
-	} else if inputs[GameInputCameraRotateRight] {
-		dr = -1 * cameraSpeed / 1000.0
-	}
-
-	camera.lookAt = player.pos
-	camera.relPos = mgl32.HomogRotate3DY(dr).Mul4x1(camera.relPos.Vec4(1.0)).Vec3()
 }
 
 // Render renders the frame
