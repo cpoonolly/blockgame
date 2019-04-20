@@ -354,12 +354,9 @@ func (game *Game) checkForCollisions(dt float32, blk *block, collidables []*bloc
 }
 
 func (game *Game) processCollisions(dt float32, blk *block, collisions []*block) mgl32.Vec3 {
-	dLeft := dt / 1000 * f32Max(0.0, blk.velocity.X())
-	dRight := dt / 1000 * f32Max(0.0, -1*blk.velocity.X())
-	dUp := dt / 1000 * f32Max(0.0, blk.velocity.Y())
-	dDown := dt / 1000 * f32Max(0.0, -1*blk.velocity.Y())
-	dForward := dt / 1000 * f32Max(0.0, blk.velocity.Z())
-	dBackward := dt / 1000 * f32Max(0.0, -1*blk.velocity.Z())
+	dX := dt / 1000 * blk.velocity.X()
+	dY := dt / 1000 * blk.velocity.Y()
+	dZ := dt / 1000 * blk.velocity.Z()
 
 	blkLeft := blk.pos.X() + blk.scale.X()
 	blkRight := blk.pos.X() - blk.scale.X()
@@ -379,76 +376,52 @@ func (game *Game) processCollisions(dt float32, blk *block, collisions []*block)
 		// fmt.Println("Processing Collision:")
 		// fmt.Printf("collision: left: %.5f\tright: %.5f\ttop: %.5f,\tbottom: %.5f,\tfront: %.5f\tback: %.5f\n", collisionLeft, collisionRight, collisionTop, collisionBottom, collisionFront, collisionBack)
 		// fmt.Printf("blk: left: %.5f\tright: %.5f\ttop: %.5f,\tbottom: %.5f,\tfront: %.5f\tback: %.5f\n", blkLeft, blkRight, blkTop, blkBottom, blkFront, blkBack)
-		// fmt.Printf("dLeft: %.5f\tdRight: %.5f\tdUp: %.5f\tdDown: %.5f\tdForward: %.5f\tdBackward: %.5f\n", dLeft, dRight, dUp, dDown, dForward, dBackward)
+		// fmt.Printf("dX: %.5f\tdY: %.5f\tdZ: %.5f\n", dX, dY, dZ)
 
 		// find the axis that collides later in time and adjust it
 		var timeOfXAxisCollision, timeOfYAxisCollision, timeOfZAxisCollision float32
 		var distanceToCollisionX, distanceToCollisionY, distanceToCollisionZ float32
 
-		if dLeft > 0 {
+		if dX > 0 {
 			distanceToCollisionX = collisionRight - blkLeft
-			timeOfXAxisCollision = dt * distanceToCollisionX / dLeft
+			timeOfXAxisCollision = dt * distanceToCollisionX / dX
+		} else if dX < 0 {
+			distanceToCollisionX = collisionLeft - blkRight
+			timeOfXAxisCollision = dt * distanceToCollisionX / dX
 		}
 
-		if dRight > 0 {
-			distanceToCollisionX = blkRight - collisionLeft
-			timeOfXAxisCollision = dt * distanceToCollisionX / dRight
-		}
-
-		if dUp > 0 {
+		if dY > 0 {
 			distanceToCollisionY = collisionBottom - blkTop
-			timeOfYAxisCollision = dt * distanceToCollisionY / dUp
+			timeOfYAxisCollision = dt * distanceToCollisionY / dY
+		} else if dY < 0 {
+			distanceToCollisionY = collisionTop - blkBottom
+			timeOfYAxisCollision = dt * distanceToCollisionY / dY
 		}
 
-		if dDown > 0 {
-			distanceToCollisionY = blkBottom - collisionTop
-			timeOfYAxisCollision = dt * distanceToCollisionY / dDown
-		}
-
-		if dForward > 0 {
+		if dZ > 0 {
 			distanceToCollisionZ = collisionBack - blkFront
-			timeOfZAxisCollision = dt * distanceToCollisionZ / dForward
-		}
-
-		if dBackward > 0 {
-			distanceToCollisionZ = blkBack - collisionFront
-			timeOfZAxisCollision = dt * distanceToCollisionZ / dBackward
+			timeOfZAxisCollision = dt * distanceToCollisionZ / dZ
+		} else if dZ < 0 {
+			distanceToCollisionZ = collisionFront - blkBack
+			timeOfZAxisCollision = dt * distanceToCollisionZ / dZ
 		}
 
 		// fmt.Printf("timeOfXAxisCollision: %.5f\ttimeOfYAxisCollision: %.5f\ttimeOfZAxisCollision: %.5f\n", timeOfXAxisCollision, timeOfYAxisCollision, timeOfZAxisCollision)
 		// fmt.Printf("distanceToCollisionX: %.5f\tdistanceToCollisionY: %.5f\tdistanceToCollisionZ: %.5f\n", distanceToCollisionX, distanceToCollisionY, distanceToCollisionZ)
 		if timeOfXAxisCollision >= timeOfYAxisCollision && timeOfXAxisCollision >= timeOfZAxisCollision {
-			if dLeft > dRight {
-				// fmt.Println("collision - left side")
-				dLeft = distanceToCollisionX
-			} else {
-				// fmt.Println("collision - right side")
-				dRight = distanceToCollisionX
-			}
+			dX = distanceToCollisionX // if dX >= 0 then left side else right side
 		}
 
 		if timeOfYAxisCollision >= timeOfXAxisCollision && timeOfYAxisCollision >= timeOfZAxisCollision {
-			if dUp > dDown {
-				// fmt.Println("collision - top side")
-				dUp = distanceToCollisionY
-			} else {
-				// fmt.Println("collision - bottom side")
-				dDown = distanceToCollisionY
-			}
+			dY = distanceToCollisionY
 		}
 
 		if timeOfZAxisCollision >= timeOfXAxisCollision && timeOfZAxisCollision >= timeOfYAxisCollision {
-			if dForward > dBackward {
-				// fmt.Println("collision - front side")
-				dForward = distanceToCollisionZ
-			} else {
-				// fmt.Println("collision - back side")
-				dBackward = distanceToCollisionZ
-			}
+			dZ = distanceToCollisionZ
 		}
 	}
 
-	newPos := blk.pos.Add(mgl32.Vec3{dLeft - dRight, dUp - dDown, dForward - dBackward})
+	newPos := blk.pos.Add(mgl32.Vec3{dX, dY, dZ})
 	newPos[0] = f32Round(newPos[0], 2)
 	newPos[1] = f32Round(newPos[1], 2)
 	newPos[2] = f32Round(newPos[2], 2)
@@ -463,8 +436,8 @@ func (game *Game) processCollisions(dt float32, blk *block, collisions []*block)
 			newPosBack := newPos.Z() - blk.scale.Z()
 
 			fmt.Println("Collisions Processed:")
-			fmt.Printf("dLeft: %.5f\tdRight: %.5f\tdUp: %.5f\tdDown: %.5f\tdForward: %.5f\tdBackward: %.5f\n", dLeft, dRight, dUp, dDown, dForward, dBackward)
 			fmt.Printf("left: %.5f\tright: %.5f\ttop: %.5f,\tbottom: %.5f,\tfront: %.5f\tback: %.5f\n", newPosLeft, newPosRight, newPosTop, newPosBottom, newPosFront, newPosBack)
+			fmt.Printf("dX: %.5f\tdY: %.5f\tdZ: %.5f\n", dX, dY, dZ)
 		}
 	*/
 
