@@ -13,6 +13,12 @@ var (
 	err  error
 )
 
+func clearMap(m map[string]bool) {
+	for k := range m {
+		delete(m, k)
+	}
+}
+
 func main() {
 	fmt.Println("Let's give this a try...")
 
@@ -31,12 +37,20 @@ func main() {
 	var renderFrame, onKeyDown, onKeyUp js.Func
 
 	isKeyDownMap := make(map[string]bool)
+	wasKeyPressedMap := make(map[string]bool)
+
 	onKeyDown = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		isKeyDownMap[args[0].Get("code").String()] = true
+		fmt.Printf("KeyDown: %s\n", args[0].Get("code").String())
 		return nil
 	})
 	onKeyUp = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		isKeyDownMap[args[0].Get("code").String()] = false
+		wasKeyPressedMap[args[0].Get("code").String()] = true
+
+		fmt.Printf("KeyUp: %s\n", args[0].Get("code").String())
+		fmt.Printf("KeyPressed: %s\n", args[0].Get("code").String())
+
 		return nil
 	})
 
@@ -47,16 +61,19 @@ func main() {
 		lastRenderTime = now
 
 		inputMap := map[core.GameInput]bool{
-			core.GameInputCameraZoomIn:      false,
-			core.GameInputCameraZoomOut:     false,
-			core.GameInputCameraRotateLeft:  false,
-			core.GameInputCameraRotateRight: false,
-			core.GameInputPlayerMoveUp:      false,
-			core.GameInputPlayerMoveDown:    false,
-			core.GameInputPlayerMoveForward: false,
-			core.GameInputPlayerMoveBack:    false,
-			core.GameInputPlayerMoveLeft:    false,
-			core.GameInputPlayerMoveRight:   false,
+			core.GameInputPlayerMoveForward:   false,
+			core.GameInputPlayerMoveBack:      false,
+			core.GameInputPlayerMoveLeft:      false,
+			core.GameInputPlayerMoveRight:     false,
+			core.GameInputCameraZoomIn:        false,
+			core.GameInputCameraZoomOut:       false,
+			core.GameInputCameraRotateLeft:    false,
+			core.GameInputCameraRotateRight:   false,
+			core.GameInputEditModeToggle:      false,
+			core.GameInputEditModeMoveUp:      false,
+			core.GameInputEditModeMoveDown:    false,
+			core.GameInputEditModeBlockCreate: false,
+			core.GameInputEditModeBlockDelete: false,
 		}
 
 		if isKeyDownMap["ControlLeft"] {
@@ -73,12 +90,6 @@ func main() {
 				inputMap[core.GameInputCameraRotateRight] = true
 			}
 		} else {
-			if isKeyDownMap["KeyA"] {
-				inputMap[core.GameInputPlayerMoveUp] = true
-			}
-			if isKeyDownMap["KeyS"] {
-				inputMap[core.GameInputPlayerMoveDown] = true
-			}
 			if isKeyDownMap["ArrowUp"] {
 				inputMap[core.GameInputPlayerMoveForward] = true
 			}
@@ -93,12 +104,29 @@ func main() {
 			}
 		}
 
+		if wasKeyPressedMap["KeyE"] {
+			inputMap[core.GameInputEditModeToggle] = true
+		}
+		if wasKeyPressedMap["KeyW"] {
+			inputMap[core.GameInputEditModeBlockCreate] = true
+		}
+		if wasKeyPressedMap["KeyD"] {
+			inputMap[core.GameInputEditModeBlockDelete] = true
+		}
+		if isKeyDownMap["KeyA"] {
+			inputMap[core.GameInputEditModeMoveUp] = true
+		}
+		if isKeyDownMap["KeyS"] {
+			inputMap[core.GameInputEditModeMoveDown] = true
+		}
+
 		game.Update(dt, inputMap)
 		game.Render()
 
-		gl.DocumentEl.Call("getElementById", "game_log").Set("innerHTML", game.Log)
 		js.Global().Call("requestAnimationFrame", renderFrame)
+		clearMap(wasKeyPressedMap)
 
+		// gl.DocumentEl.Call("getElementById", "game_log").Set("innerHTML", game.Log)
 		return nil
 	})
 
