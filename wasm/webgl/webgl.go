@@ -72,16 +72,20 @@ func New(canvasID string) (*Context, error) {
 	gl.constants.triangles = gl.ctx.Get("TRIANGLES")
 	gl.constants.lines = gl.ctx.Get("GL_LINES")
 
-	// do some initialization for stuff we know we'll need for the block game
-	body := gl.DocumentEl.Get("body")
-	gl.width = body.Get("clientWidth").Int()
-	gl.height = body.Get("clientHeight").Int()
+	// calculate Viewport
+	gl.UpdateViewport()
+
+	return gl, nil
+}
+
+// UpdateViewport recalculates the viewport given the canvas' width/height
+func (gl *Context) UpdateViewport() {
+	gl.width = gl.CanvasEl.Get("clientWidth").Int()
+	gl.height = gl.CanvasEl.Get("clientHeight").Int()
 
 	gl.ctx.Call("viewport", 0, 0, gl.width, gl.height)
 	gl.CanvasEl.Set("width", gl.width)
 	gl.CanvasEl.Set("height", gl.height)
-
-	return gl, nil
 }
 
 // GetViewportWidth gets the viewport width

@@ -8,6 +8,7 @@ type Mesh interface{}
 
 // GlContext represents a generic gl context (not necessarily WebGL) that can be used by the game
 type GlContext interface {
+	UpdateViewport()
 	GetViewportWidth() int
 	GetViewportHeight() int
 	Enable(string)

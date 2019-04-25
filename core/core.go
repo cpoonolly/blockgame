@@ -66,13 +66,12 @@ type Game struct {
 	normalMatrix    mgl32.Mat4
 	color           mgl32.Vec4
 
-	playerBlock        *player
-	worldBlocks        map[uint32]*worldBlock
-	camera             camera
-	jumpAnimationStart float32
+	player      *player
+	worldBlocks map[uint32]*worldBlock
+	camera      camera
 
-	isEditMode       bool
-	lastWorldBlockId uint32
+	IsEditModeEnabled bool
+	lastWorldBlockID  uint32
 
 	Log string
 }
@@ -84,11 +83,7 @@ func NewGame(glCtx GlContext) (*Game, error) {
 
 	var err error
 
-	viewportWidth := float32(game.gl.GetViewportWidth())
-	viewportHeight := float32(game.gl.GetViewportHeight())
-	aspectRatio := viewportWidth / viewportHeight
-
-	game.projMatrix = mgl32.Perspective(mgl32.DegToRad(45.0), aspectRatio, 1, 50.0)
+	game.OnViewPortChange()
 	game.modelViewMatrix = mgl32.Ident4()
 	game.normalMatrix = mgl32.Ident4()
 	game.color = mgl32.Vec4{1.0, 1.0, 1.0, 1.0}
@@ -113,52 +108,19 @@ func NewGame(glCtx GlContext) (*Game, error) {
 		return nil, err
 	}
 
-	game.playerBlock = new(player)
-	game.playerBlock.scale = mgl32.Vec3{0.5, 0.5, 0.5}
-	game.playerBlock.color = mgl32.Vec4{0.9, 0.9, 0.9, 1.0}
+	game.player = new(player)
+	game.player.scale = mgl32.Vec3{0.5, 0.5, 0.5}
+	game.player.color = mgl32.Vec4{.3, .5, 1, 1.0}
 
 	// generate world blocks
 	game.worldBlocks = make(map[uint32]*worldBlock)
-
-	// world block 1
-	game.EditorCreateWorldBlock(
-		mgl32.Vec3{2.0, -1.0, -1.0},
-		mgl32.Vec3{2.0, 2.0, 2.0},
-		mgl32.Vec4{0.1, 1.0, 0.1, 1.0},
-	)
-	// game.worldBlocks[1] = new(worldBlock)
-	// game.worldBlocks[1].pos = mgl32.Vec3{3.0, 0.0, 0.0}
-	// game.worldBlocks[1].scale = mgl32.Vec3{1.0, 1.0, 1.0}
-	// game.worldBlocks[1].color = mgl32.Vec4{0.1, 1.0, 0.1, 1.0}
-
-	// world block 2
-	game.EditorCreateWorldBlock(
-		mgl32.Vec3{-7.0, -2.0, -2.0},
-		mgl32.Vec3{4.0, 4.0, 4.0},
-		mgl32.Vec4{1.0, 0.1, 0.1, 1.0},
-	)
-	// game.worldBlocks[1] = new(worldBlock)
-	// game.worldBlocks[1].pos = mgl32.Vec3{-5.0, 0.0, 0.0}
-	// game.worldBlocks[1].scale = mgl32.Vec3{2.0, 2.0, 2.0}
-	// game.worldBlocks[1].color = mgl32.Vec4{1.0, 0.1, 0.1, 1.0}
-
-	// world block 3
-	game.EditorCreateWorldBlock(
-		mgl32.Vec3{-10.0, -4.0, -10.0},
-		mgl32.Vec3{20.0, 2.0, 20.0},
-		mgl32.Vec4{0.1, 0.1, 1.0, 1.0},
-	)
-	// game.worldBlocks[2] = new(worldBlock)
-	// game.worldBlocks[2].pos = mgl32.Vec3{0.0, -3.0, 0.0}
-	// game.worldBlocks[2].scale = mgl32.Vec3{10.0, 1.0, 10.0}
-	// game.worldBlocks[2].color = mgl32.Vec4{0.1, 0.1, 1.0, 1.0}
 
 	// create a camera
 	arcballCamera := new(arcballCamera)
 	arcballCamera.up = mgl32.Vec3{0.0, 1.0, 0.0}
 	game.camera = arcballCamera
 
-	game.isEditMode = true
+	game.IsEditModeEnabled = true
 
 	return game, nil
 }
@@ -166,11 +128,11 @@ func NewGame(glCtx GlContext) (*Game, error) {
 // Update updates the game models
 func (game *Game) Update(dt float32, inputs map[GameInput]bool) {
 	if inputs[GameInputEditModeToggle] {
-		game.isEditMode = !game.isEditMode
+		game.IsEditModeEnabled = !game.IsEditModeEnabled
 	}
 
-	if game.isEditMode {
-		player := game.playerBlock
+	if game.IsEditModeEnabled {
+		player := game.player
 		camera := game.camera.(*arcballCamera)
 		eyePos := camera.getEyePos()
 		game.Log = fmt.Sprintf(
@@ -187,7 +149,7 @@ func (game *Game) Update(dt float32, inputs map[GameInput]bool) {
 		game.Log = ""
 	}
 
-	game.playerBlock.update(game, dt, inputs)
+	game.player.update(game, dt, inputs)
 	game.camera.update(game, dt, inputs)
 }
 
@@ -196,10 +158,10 @@ func (game *Game) Update(dt float32, inputs map[GameInput]bool) {
 // dimensions = width, height, & length of the block.
 // color = rgba values for the block color.
 // returns id of the new block
-func (game *Game) EditorCreateWorldBlock(pos, dimensions mgl32.Vec3, color mgl32.Vec4) uint32 {
+func (game *Game) EditorCreateWorldBlock(pos, dimensions, color [3]float32) uint32 {
 	newBlock := new(worldBlock)
-	newBlock.id = game.lastWorldBlockId + 1 // NOTE: not thread safe...
-	game.lastWorldBlockId = newBlock.id
+	newBlock.id = game.lastWorldBlockID + 1 // NOTE: not thread safe...
+	game.lastWorldBlockID = newBlock.id
 	game.worldBlocks[newBlock.id] = newBlock
 
 	game.EditorUpdateWorldBlock(newBlock.id, pos, dimensions, color)
@@ -212,12 +174,12 @@ func (game *Game) EditorCreateWorldBlock(pos, dimensions mgl32.Vec3, color mgl32
 // pos = coordinates for right, bottom, back vertex of the block.
 // dimensions = width, height, & length of the block.
 // color = rgba values for the block color.
-func (game *Game) EditorUpdateWorldBlock(id uint32, pos, dimensions mgl32.Vec3, color mgl32.Vec4) {
+func (game *Game) EditorUpdateWorldBlock(id uint32, position, dimensions, color [3]float32) {
 	block := game.worldBlocks[id]
 
-	block.color = color
-	block.scale = dimensions.Mul(0.5)
-	block.pos = pos.Add(block.scale)
+	block.color = (mgl32.Vec3{color[0], color[1], color[2]}).Vec4(1.0)
+	block.scale = (mgl32.Vec3{dimensions[0], dimensions[1], dimensions[2]}).Mul(0.5)
+	block.pos = (mgl32.Vec3{position[0], position[1], position[2]}).Add(block.scale)
 }
 
 // EditorDeleteWorldBlock editor function to delete a block
@@ -226,11 +188,49 @@ func (game *Game) EditorDeleteWorldBlock(id uint32) {
 	delete(game.worldBlocks, id)
 }
 
+// GetWorldBlockPosition get's the x,y,z coordinates of right, bottom, back vertex of the block
+// id = id of the block to get position info for
+// returns the x,y,z coordinates (in that order) as a [3]float32
+func (game *Game) GetWorldBlockPosition(id uint32) [3]float32 {
+	block := game.worldBlocks[id]
+
+	return block.pos.Add(block.scale.Mul(-1))
+}
+
+// GetWorldBlockDimensions get's the width, height, & length of the block
+// id = id of the block to get dimensions for
+// retuns the width, height, & length (in that order) as a [3]float32
+func (game *Game) GetWorldBlockDimensions(id uint32) [3]float32 {
+	block := game.worldBlocks[id]
+
+	return block.scale.Mul(2)
+}
+
+// GetWorldBlockColor get's the rgb color of the block
+// id = id of the block to get color for
+// retuns the rgb color values (in that order) as a [4]float32
+func (game *Game) GetWorldBlockColor(id uint32) [3]float32 {
+	block := game.worldBlocks[id]
+
+	return block.color.Vec3()
+}
+
+// OnViewPortChange recalculates the projection matrix after a viewport adjustment
+func (game *Game) OnViewPortChange() {
+	game.gl.UpdateViewport()
+
+	viewportWidth := float32(game.gl.GetViewportWidth())
+	viewportHeight := float32(game.gl.GetViewportHeight())
+	aspectRatio := viewportWidth / viewportHeight
+
+	game.projMatrix = mgl32.Perspective(mgl32.DegToRad(45.0), aspectRatio, 1, 50.0)
+}
+
 // Render renders the frame
 func (game *Game) Render() {
-	color := mgl32.Vec3{0.9, 0.9, 0.9}
-	if game.isEditMode {
-		color = mgl32.Vec3{0.0, 0.0, 0.0}
+	color := mgl32.Vec3{0.0, 0.0, 0.0}
+	if game.IsEditModeEnabled {
+		color = mgl32.Vec3{0.9, 0.9, 0.9}
 	}
 
 	if err := game.gl.ClearScreen(color.X(), color.Y(), color.Z()); err != nil {
@@ -240,7 +240,7 @@ func (game *Game) Render() {
 	viewMatrix := game.camera.getViewMatrix()
 
 	// Render player
-	if err := game.playerBlock.render(game, viewMatrix); err != nil {
+	if err := game.player.render(game, viewMatrix); err != nil {
 		panic(err)
 	}
 

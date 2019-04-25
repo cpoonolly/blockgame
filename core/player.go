@@ -62,7 +62,7 @@ func (player *player) update(game *Game, dt float32, inputs map[GameInput]bool) 
 		dvz = -1 * player.vel.Z() / f32Abs(player.vel.Z()) * dampening
 	}
 
-	if !game.isEditMode {
+	if !game.IsEditModeEnabled {
 		dvy = -1 * gravityAcceleration
 	} else {
 		if inputs[GameInputEditModeMoveUp] {
@@ -79,15 +79,15 @@ func (player *player) update(game *Game, dt float32, inputs map[GameInput]bool) 
 	player.vel[1] = f32LimitBetween(player.vel[1], -1*maxVelocity, maxVelocity)
 	player.vel[2] = f32LimitBetween(player.vel[2], -1*maxVelocity, maxVelocity)
 
-	if game.isEditMode {
+	if game.IsEditModeEnabled {
 		game.Log += fmt.Sprintf("<br/>Player Velocity: (vx: %.2f\tvy: %.2f\tvz: %.2f)\n", player.vel.X(), player.vel.Y(), player.vel.Z())
 	}
 
-	dPos := game.playerBlock.vel.Mul(dt / 1000)
-	if !game.isEditMode {
+	dPos := game.player.vel.Mul(dt / 1000)
+	if !game.IsEditModeEnabled {
 		for _, worldBlock := range game.worldBlocks {
 			if checkForStaticCollision(dt, dPos, player, worldBlock) {
-				dPos = processStaticCollision(dPos, getStaticCollisionDetails(dt, dPos, game.playerBlock, worldBlock))
+				dPos = processStaticCollision(dPos, getStaticCollisionDetails(dt, dPos, game.player, worldBlock))
 			}
 		}
 	}

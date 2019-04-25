@@ -14,27 +14,50 @@
         padding: 0;
       }
 
+      #container_main {
+        display: flex;
+        width: calc(100vw);
+        height: calc(100vh);
+        justify-content: center;
+        align-items: stretch;
+      }
+
+      #container_canvas {
+        flex-grow: 1;
+      }
+
       #canvas_main {
-        position:fixed;
-        opacity:1.0;
+        opacity: 1.0;
         width: 100%;
-        height:100%;
-        top:0;
-        right:0;
-        bottom:0;
-        left:0;
+        height: 100%;
         z-index: 1000;
       }
 
       #game_log {
-        position: fixed;
+        position: absolute;
         z-index: 2000;
         color: white;
+      }
+
+      #container_editor_panel {
+        display: none;
+        flex-basis: calc(40vw);
+        background-color: grey;
+        z-index: 3000;
+      }
+
+      #container_main.edit-mode-enabled #container_editor_panel {
+        display: block;
       }
     </style>
 	</head>
 	<body>
-    <p id="game_log"></p>
-    <canvas id="canvas_main"></canvas>
+    <div id="container_main" class="edit-mode-enabled">
+      <div id="container_canvas">
+        <p id="game_log"></p>
+        <canvas id="canvas_main"></canvas>
+      </div>
+      <div id="container_editor_panel"></div>
+    </div>
   </body>
 </html>

@@ -33,7 +33,7 @@ func (camera *arcballCamera) getViewMatrix() mgl32.Mat4 {
 }
 
 func (camera *arcballCamera) update(game *Game, dt float32, inputs map[GameInput]bool) {
-	player := game.playerBlock
+	player := game.player
 
 	var dyaw float32
 	if inputs[GameInputCameraRotateLeft] {
