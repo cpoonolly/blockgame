@@ -154,6 +154,7 @@ func main() {
 		for _, worldBlockID := range worldBlockIDs {
 			position := game.GetWorldBlockPosition(worldBlockID)
 			dimensions := game.GetWorldBlockDimensions(worldBlockID)
+			color := game.GetWorldBlockColor(worldBlockID)
 
 			htmlBuilder.WriteString(fmt.Sprintf(`
 					<div id='edit-block-%[1]d' class='edit-block'>
@@ -172,15 +173,27 @@ func main() {
 						</div>
 						<div class='edit-block-attr'>
 							<label class='edit-block-attr-label'>width:</label>
-							<input id='edit-block-posx-%[1]d' class='edit-block-attr-val' type='number' value='%.2[5]f'/>
+							<input id='edit-block-dimx-%[1]d' class='edit-block-attr-val' type='number' value='%.2[5]f'/>
 						</div>
 						<div class='edit-block-attr'>
 							<label class='edit-block-attr-label'>height:</label>
-							<input id='edit-block-posy-%[1]d' class='edit-block-attr-val' type='number' value='%.2[6]f'/>
+							<input id='edit-block-dimy-%[1]d' class='edit-block-attr-val' type='number' value='%.2[6]f'/>
 						</div>
 						<div class='edit-block-attr'>
 							<label class='edit-block-attr-label'>length:</label>
-							<input id='edit-block-posz-%[1]d' class='edit-block-attr-val' type='number' value='%.2[7]f'/>
+							<input id='edit-block-dimz-%[1]d' class='edit-block-attr-val' type='number' value='%.2[7]f'/>
+						</div>
+						<div class='edit-block-attr'>
+							<label class='edit-block-attr-label'>r:</label>
+							<input id='edit-block-colr-%[1]d' class='edit-block-attr-val' type='number' value='%.2[8]f'/>
+						</div>
+						<div class='edit-block-attr'>
+							<label class='edit-block-attr-label'>g:</label>
+							<input id='edit-block-colg-%[1]d' class='edit-block-attr-val' type='number' value='%.2[9]f'/>
+						</div>
+						<div class='edit-block-attr'>
+							<label class='edit-block-attr-label'>b:</label>
+							<input id='edit-block-colb-%[1]d' class='edit-block-attr-val' type='number' value='%.2[10]f'/>
 						</div>
 						<button class='edit-block-update-btn' onclick='updateBlock(%[1]d)'>Update</button>
 						<button class='edit-block-delete-btn' onclick='deleteBlock(%[1]d)'>Delete</button>
@@ -193,6 +206,9 @@ func main() {
 				dimensions[0],
 				dimensions[1],
 				dimensions[2],
+				color[0],
+				color[1],
+				color[2],
 			))
 		}
 
@@ -239,7 +255,9 @@ func main() {
 		dimensions[1] = getAttribValue("dimy")
 		dimensions[2] = getAttribValue("dimz")
 
-		color = [3]float32{.7, .7, .7}
+		color[0] = getAttribValue("colr")
+		color[1] = getAttribValue("colg")
+		color[2] = getAttribValue("colb")
 
 		game.EditorUpdateWorldBlock(blockID, position, dimensions, color)
 		renderEditorPanel()

@@ -147,6 +147,11 @@ func (game *Game) Update(dt float32, inputs map[GameInput]bool) {
 
 	game.player.update(game, dt, inputs)
 	game.camera.update(game, dt, inputs)
+
+	if !game.IsEditModeEnabled && game.player.pos.Y() < -10.0 {
+		// GAME OVER
+		game.player.pos = mgl32.Vec3{0, 0, 0}
+	}
 }
 
 // EditorCreateWorldBlock editor function to create a new world block.
