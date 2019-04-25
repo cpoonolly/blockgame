@@ -36,11 +36,15 @@ func main() {
 		return
 	}
 
+	/* Canvas Resize */
+
 	onCanvasResize := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		game.OnViewPortChange()
 
 		return nil
 	})
+
+	/* Key Press Tracking */
 
 	isKeyDownMap := make(map[string]bool)
 	wasKeyPressedMap := make(map[string]bool)
@@ -48,19 +52,16 @@ func main() {
 	onKeyDown := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		isKeyDownMap[args[0].Get("code").String()] = true
 
-		// fmt.Printf("KeyDown: %s\n", args[0].Get("code").String())
-
 		return nil
 	})
 	onKeyUp := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		isKeyDownMap[args[0].Get("code").String()] = false
 		wasKeyPressedMap[args[0].Get("code").String()] = true
 
-		// fmt.Printf("KeyUp: %s\n", args[0].Get("code").String())
-		// fmt.Printf("KeyPressed: %s\n", args[0].Get("code").String())
-
 		return nil
 	})
+
+	/* Main Game Loop */
 
 	var lastRenderTime float32
 	var renderFrame js.Func
@@ -140,6 +141,8 @@ func main() {
 		return nil
 	})
 
+	/* Editor Actions */
+
 	worldBlockIDs := make([]uint32, 0)
 
 	renderEditorPanel := func() {
@@ -160,7 +163,8 @@ func main() {
 			htmlBuilder.WriteString(fmt.Sprintf("<span>width:<input id='edit-block-dimx-%d' type='number' value='%.2f'/></span><br/>", worldBlockID, dimensions[0]))
 			htmlBuilder.WriteString(fmt.Sprintf("<span>height:<input id='edit-block-dimy-%d' type='number' value='%.2f'/></span><br/>", worldBlockID, dimensions[1]))
 			htmlBuilder.WriteString(fmt.Sprintf("<span>length:<input id='edit-block-dimz-%d' type='number' value='%.2f'/></span><br/>", worldBlockID, dimensions[2]))
-			htmlBuilder.WriteString(fmt.Sprintf("<button onclick='updateBlock(%d)'>Update</button>", worldBlockID))
+			htmlBuilder.WriteString(fmt.Sprintf("<button class='edit-block-update-btn' onclick='updateBlock(%d)'>Update</button>", worldBlockID))
+			htmlBuilder.WriteString(fmt.Sprintf("<button class='edit-block-delete-btn' onclick='deleteBlock(%d)'>Delete</button>", worldBlockID))
 			htmlBuilder.WriteString("</div>")
 		}
 
@@ -215,12 +219,32 @@ func main() {
 		return nil
 	})
 
+	deleteBlock := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		blockID := uint32(args[0].Int())
+
+		game.EditorDeleteWorldBlock(blockID)
+
+		// remove block from ids
+		for index, worldBlockID := range worldBlockIDs {
+			if worldBlockID == blockID {
+				worldBlockIDs[index] = worldBlockIDs[len(worldBlockIDs)-1]
+				worldBlockIDs = worldBlockIDs[:len(worldBlockIDs)-1]
+				break
+			}
+		}
+
+		renderEditorPanel()
+
+		return nil
+	})
+
 	defer renderFrame.Release()
 	defer onKeyDown.Release()
 	defer onKeyUp.Release()
 	defer onCanvasResize.Release()
 	defer createNewBlock.Release()
 	defer updateBlock.Release()
+	defer deleteBlock.Release()
 
 	js.Global().Call("requestAnimationFrame", renderFrame)
 	js.Global().Call("addEventListener", "keydown", onKeyDown)
@@ -228,6 +252,7 @@ func main() {
 	js.Global().Call("addEventListener", "resize", onCanvasResize)
 	js.Global().Set("createNewBlock", createNewBlock)
 	js.Global().Set("updateBlock", updateBlock)
+	js.Global().Set("deleteBlock", deleteBlock)
 
 	renderEditorPanel()
 
