@@ -5,6 +5,8 @@ import (
 	"github.com/go-gl/mathgl/mgl32"
 )
 
+const playerAcceleration float32 = 1
+
 type player struct {
 	pos   mgl32.Vec3
 	scale mgl32.Vec3

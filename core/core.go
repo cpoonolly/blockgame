@@ -45,10 +45,6 @@ type gameRenderable interface {
 const maxVelocity float32 = 10
 const dampening float32 = 1
 
-// camera move .5 units per second
-const cameraSpeed float32 = 100
-
-const playerAcceleration float32 = 1
 const gravityAcceleration float32 = 1
 
 // Game represents a game
@@ -63,11 +59,13 @@ type Game struct {
 	color           mgl32.Vec4
 
 	player      *player
+	enemies     map[uint32]*enemy
 	worldBlocks map[uint32]*worldBlock
 	camera      camera
 
 	IsEditModeEnabled bool
 	lastWorldBlockID  uint32
+	lastEnemyID       uint32
 
 	Log string
 }
@@ -111,6 +109,9 @@ func NewGame(glCtx GlContext) (*Game, error) {
 	// generate world blocks
 	game.worldBlocks = make(map[uint32]*worldBlock)
 
+	// generate enemies
+	game.enemies = make(map[uint32]*enemy)
+
 	// create a camera
 	arcballCamera := new(arcballCamera)
 	arcballCamera.up = mgl32.Vec3{0.0, 1.0, 0.0}
@@ -149,8 +150,7 @@ func (game *Game) Update(dt float32, inputs map[GameInput]bool) {
 	game.camera.update(game, dt, inputs)
 
 	if !game.IsEditModeEnabled && game.player.pos.Y() < -10.0 {
-		// GAME OVER
-		game.player.pos = mgl32.Vec3{0, 0, 0}
+		game.GameOver()
 	}
 }
 
@@ -251,6 +251,12 @@ func (game *Game) Render() {
 			panic(err)
 		}
 	}
+}
+
+// GameOver the game is over
+func (game *Game) GameOver() {
+	// GAME OVER
+	game.player.pos = mgl32.Vec3{0, 0, 0}
 }
 
 var blockVerticies = [...]float32{

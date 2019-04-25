@@ -4,6 +4,8 @@ import (
 	"github.com/go-gl/mathgl/mgl32"
 )
 
+const cameraSpeed float32 = 100
+
 type camera interface {
 	gameUpdatable
 	getViewMatrix() mgl32.Mat4
