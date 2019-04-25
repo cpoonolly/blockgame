@@ -71,19 +71,17 @@ func main() {
 		lastRenderTime = now
 
 		inputMap := map[core.GameInput]bool{
-			core.GameInputPlayerMoveForward:   false,
-			core.GameInputPlayerMoveBack:      false,
-			core.GameInputPlayerMoveLeft:      false,
-			core.GameInputPlayerMoveRight:     false,
-			core.GameInputCameraZoomIn:        false,
-			core.GameInputCameraZoomOut:       false,
-			core.GameInputCameraRotateLeft:    false,
-			core.GameInputCameraRotateRight:   false,
-			core.GameInputEditModeToggle:      false,
-			core.GameInputEditModeMoveUp:      false,
-			core.GameInputEditModeMoveDown:    false,
-			core.GameInputEditModeBlockCreate: false,
-			core.GameInputEditModeBlockDelete: false,
+			core.GameInputPlayerMoveForward: false,
+			core.GameInputPlayerMoveBack:    false,
+			core.GameInputPlayerMoveLeft:    false,
+			core.GameInputPlayerMoveRight:   false,
+			core.GameInputCameraZoomIn:      false,
+			core.GameInputCameraZoomOut:     false,
+			core.GameInputCameraRotateLeft:  false,
+			core.GameInputCameraRotateRight: false,
+			core.GameInputEditModeToggle:    false,
+			core.GameInputEditModeMoveUp:    false,
+			core.GameInputEditModeMoveDown:  false,
 		}
 
 		if isKeyDownMap["ControlLeft"] {
@@ -148,24 +146,54 @@ func main() {
 	renderEditorPanel := func() {
 		var htmlBuilder strings.Builder
 
-		htmlBuilder.WriteString("<button class='' onclick='createNewBlock()'>New Block</button><br/><br/>")
-		htmlBuilder.WriteString("<div class='edit-blocks'>")
+		htmlBuilder.WriteString(`
+			<button class='new-block-btn' onclick='createNewBlock()'>New Block</button>
+			<div class='edit-blocks'>
+		`)
 
 		for _, worldBlockID := range worldBlockIDs {
 			position := game.GetWorldBlockPosition(worldBlockID)
 			dimensions := game.GetWorldBlockDimensions(worldBlockID)
 
-			htmlBuilder.WriteString(fmt.Sprintf("<div id='edit-block-%d' class='edit-block'>", worldBlockID))
-			htmlBuilder.WriteString(fmt.Sprintf("<strong>Block: %d</strong><br/>", worldBlockID))
-			htmlBuilder.WriteString(fmt.Sprintf("<span>x:<input id='edit-block-posx-%d' type='number' value='%.2f'/></span><br/>", worldBlockID, position[0]))
-			htmlBuilder.WriteString(fmt.Sprintf("<span>y:<input id='edit-block-posy-%d' type='number' value='%.2f'/></span><br/>", worldBlockID, position[1]))
-			htmlBuilder.WriteString(fmt.Sprintf("<span>z:<input id='edit-block-posz-%d' type='number' value='%.2f'/></span><br/>", worldBlockID, position[2]))
-			htmlBuilder.WriteString(fmt.Sprintf("<span>width:<input id='edit-block-dimx-%d' type='number' value='%.2f'/></span><br/>", worldBlockID, dimensions[0]))
-			htmlBuilder.WriteString(fmt.Sprintf("<span>height:<input id='edit-block-dimy-%d' type='number' value='%.2f'/></span><br/>", worldBlockID, dimensions[1]))
-			htmlBuilder.WriteString(fmt.Sprintf("<span>length:<input id='edit-block-dimz-%d' type='number' value='%.2f'/></span><br/>", worldBlockID, dimensions[2]))
-			htmlBuilder.WriteString(fmt.Sprintf("<button class='edit-block-update-btn' onclick='updateBlock(%d)'>Update</button>", worldBlockID))
-			htmlBuilder.WriteString(fmt.Sprintf("<button class='edit-block-delete-btn' onclick='deleteBlock(%d)'>Delete</button>", worldBlockID))
-			htmlBuilder.WriteString("</div>")
+			htmlBuilder.WriteString(fmt.Sprintf(`
+					<div id='edit-block-%[1]d' class='edit-block'>
+						<h5 class='edit-block-title'>Block: %[1]d</h5><br/>
+						<div class='edit-block-attr'>
+							<label class='edit-block-attr-label'>x:</label>
+							<input id='edit-block-posx-%[1]d' class='edit-block-attr-val' type='number' value='%.2[2]f'/>
+						</div>
+						<div class='edit-block-attr'>
+							<label class='edit-block-attr-label'>y:</label>
+							<input id='edit-block-posy-%[1]d' class='edit-block-attr-val' type='number' value='%.2[3]f'/>
+						</div>
+						<div class='edit-block-attr'>
+							<label class='edit-block-attr-label'>z:</label>
+							<input id='edit-block-posz-%[1]d' class='edit-block-attr-val' type='number' value='%.2[4]f'/>
+						</div>
+						<div class='edit-block-attr'>
+							<label class='edit-block-attr-label'>width:</label>
+							<input id='edit-block-posx-%[1]d' class='edit-block-attr-val' type='number' value='%.2[5]f'/>
+						</div>
+						<div class='edit-block-attr'>
+							<label class='edit-block-attr-label'>height:</label>
+							<input id='edit-block-posy-%[1]d' class='edit-block-attr-val' type='number' value='%.2[6]f'/>
+						</div>
+						<div class='edit-block-attr'>
+							<label class='edit-block-attr-label'>length:</label>
+							<input id='edit-block-posz-%[1]d' class='edit-block-attr-val' type='number' value='%.2[7]f'/>
+						</div>
+						<button class='edit-block-update-btn' onclick='updateBlock(%[1]d)'>Update</button>
+						<button class='edit-block-delete-btn' onclick='deleteBlock(%[1]d)'>Delete</button>
+					</div>
+				`,
+				worldBlockID,
+				position[0],
+				position[1],
+				position[2],
+				dimensions[0],
+				dimensions[1],
+				dimensions[2],
+			))
 		}
 
 		htmlBuilder.WriteString("</div>")
@@ -227,7 +255,7 @@ func main() {
 		// remove block from ids
 		for index, worldBlockID := range worldBlockIDs {
 			if worldBlockID == blockID {
-				worldBlockIDs[index] = worldBlockIDs[len(worldBlockIDs)-1]
+				copy(worldBlockIDs[index:], worldBlockIDs[index+1:])
 				worldBlockIDs = worldBlockIDs[:len(worldBlockIDs)-1]
 				break
 			}

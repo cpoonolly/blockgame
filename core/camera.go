@@ -22,7 +22,7 @@ func (camera *arcballCamera) getEyePos() mgl32.Vec3 {
 
 	relPos := mgl32.Vec4{1.0, 1.0, 1.0, 1.0}
 	relPos = mgl32.HomogRotate3DY(yaw).Mul4x1(relPos)
-	relPos = mgl32.Scale3D(1+(zoom/2), 1+(zoom/2), 1+(zoom/2)).Mul4x1(relPos)
+	relPos = mgl32.Scale3D(1+(zoom/1.5), 1+(zoom/1.5), 1+(zoom/1.5)).Mul4x1(relPos)
 	relPos = mgl32.Translate3D(0.0, zoom, 0.0).Mul4x1(relPos)
 
 	return camera.lookAt.Add(relPos.Vec3())
@@ -37,9 +37,9 @@ func (camera *arcballCamera) update(game *Game, dt float32, inputs map[GameInput
 
 	var dyaw float32
 	if inputs[GameInputCameraRotateLeft] {
-		dyaw = -1 * cameraSpeed / 1000.0
-	} else if inputs[GameInputCameraRotateRight] {
 		dyaw = cameraSpeed / 1000.0
+	} else if inputs[GameInputCameraRotateRight] {
+		dyaw = -1 * cameraSpeed / 1000.0
 	}
 
 	var dzoom float32

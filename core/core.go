@@ -31,10 +31,6 @@ const (
 	GameInputEditModeMoveUp
 	// GameInputEditModeMoveDown input to move the player down
 	GameInputEditModeMoveDown
-	// GameInputEditModeBlockCreate creates a new block
-	GameInputEditModeBlockCreate
-	// GameInputEditModeBlockDelete deletes a block
-	GameInputEditModeBlockDelete
 )
 
 type gameUpdatable interface {
