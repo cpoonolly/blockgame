@@ -1,84 +1,9 @@
 package core
 
 import (
-	// "fmt"
+	"fmt"
 	"github.com/go-gl/mathgl/mgl32"
-	"math"
 )
-
-func f32Abs(num float32) float32 {
-	return float32(math.Abs(float64(num)))
-}
-
-func f32Round(num float32, decimalPlaces uint16) float32 {
-	multiplier := math.Pow10(int(decimalPlaces))
-	return float32(math.Round(float64(num)*multiplier) / multiplier)
-}
-
-func f32Max(num1, num2 float32) float32 {
-	return float32(math.Max(float64(num1), float64(num2)))
-}
-
-func f32Min(num1, num2 float32) float32 {
-	return float32(math.Min(float64(num1), float64(num2)))
-}
-
-func f32LimitBetween(num, min, max float32) float32 {
-	return f32Min(f32Max(num, min), max)
-}
-
-// ShaderProgram generic interface for shader returned by GlContext below
-type ShaderProgram interface{}
-
-// Mesh generic interface for mesh returned by GlContext below
-type Mesh interface{}
-
-// GlContext represents a generic gl context (not necessarily WebGL) that can be used by the game
-type GlContext interface {
-	GetViewportWidth() int
-	GetViewportHeight() int
-	Enable(string)
-	Disable(string)
-	ClearScreen(float32, float32, float32) error
-	NewShaderProgram(string, string, map[string][]float32, map[string][]float32) (ShaderProgram, error)
-	NewMesh([]float32, []float32, []uint16) (Mesh, error)
-	RenderTriangles(Mesh, ShaderProgram) error
-	RenderLines(Mesh, ShaderProgram) error
-}
-
-type block struct {
-	pos      mgl32.Vec3
-	scale    mgl32.Vec3
-	velocity mgl32.Vec3
-	color    mgl32.Vec4
-}
-
-type camera interface {
-	getViewMatrix() mgl32.Mat4
-}
-
-type arcballCamera struct {
-	lookAt mgl32.Vec3
-	zoom   float32
-	yaw    float32
-	up     mgl32.Vec3
-}
-
-func (camera *arcballCamera) getViewMatrix() mgl32.Mat4 {
-	return mgl32.LookAtV(camera.getEyePos(), camera.lookAt, camera.up)
-}
-
-func (camera *arcballCamera) getEyePos() mgl32.Vec3 {
-	zoom := camera.zoom
-	yaw := camera.yaw
-
-	relPos := mgl32.Vec4{1.0, 1.0, 1.0, 1.0}
-	relPos = mgl32.HomogRotate3DY(yaw).Mul4x1(relPos)
-	relPos = mgl32.Scale3D(1+(zoom/2), 1+(zoom/2), 1+(zoom/2)).Mul4x1(relPos)
-	relPos = mgl32.Translate3D(0.0, zoom, 0.0).Mul4x1(relPos)
-
-	return camera.lookAt.Add(relPos.Vec3())
-}
 
 // GameInput an input for the game
 type GameInput int
@@ -112,14 +37,23 @@ const (
 	GameInputEditModeBlockDelete
 )
 
-// player moves 1 unit per second
-const playerSpeed float32 = 10
+type gameUpdatable interface {
+	update(game *Game, dt float32, inputs map[GameInput]bool)
+}
+
+type gameRenderable interface {
+	render(game *Game, viewMatrix mgl32.Mat4) error
+}
+
+// maximum velocity for a moving object
+const maxVelocity float32 = 10
+const dampening float32 = 1
 
 // camera move .5 units per second
 const cameraSpeed float32 = 100
 
-// gravity not acceleration based but based on pure veloctiy
-const gravitySpeed float32 = 10
+const playerAcceleration float32 = 1
+const gravityAcceleration float32 = 1
 
 // Game represents a game
 type Game struct {
@@ -132,11 +66,13 @@ type Game struct {
 	normalMatrix    mgl32.Mat4
 	color           mgl32.Vec4
 
-	playerBlock    *block
-	worldBlocks    []*block
-	camera         camera
-	isEditMode     bool
-	editorNewBlock *block
+	playerBlock        *player
+	worldBlocks        map[uint32]*worldBlock
+	camera             camera
+	jumpAnimationStart float32
+
+	isEditMode       bool
+	lastWorldBlockId uint32
 
 	Log string
 }
@@ -177,30 +113,45 @@ func NewGame(glCtx GlContext) (*Game, error) {
 		return nil, err
 	}
 
-	game.playerBlock = new(block)
+	game.playerBlock = new(player)
 	game.playerBlock.scale = mgl32.Vec3{0.5, 0.5, 0.5}
 	game.playerBlock.color = mgl32.Vec4{0.9, 0.9, 0.9, 1.0}
 
 	// generate world blocks
-	game.worldBlocks = make([]*block, 3)
+	game.worldBlocks = make(map[uint32]*worldBlock)
 
 	// world block 1
-	game.worldBlocks[0] = new(block)
-	game.worldBlocks[0].pos = mgl32.Vec3{3.0, 0.0, 0.0}
-	game.worldBlocks[0].scale = mgl32.Vec3{1.0, 1.0, 1.0}
-	game.worldBlocks[0].color = mgl32.Vec4{0.1, 1.0, 0.1, 1.0}
+	game.EditorCreateWorldBlock(
+		mgl32.Vec3{2.0, -1.0, -1.0},
+		mgl32.Vec3{2.0, 2.0, 2.0},
+		mgl32.Vec4{0.1, 1.0, 0.1, 1.0},
+	)
+	// game.worldBlocks[1] = new(worldBlock)
+	// game.worldBlocks[1].pos = mgl32.Vec3{3.0, 0.0, 0.0}
+	// game.worldBlocks[1].scale = mgl32.Vec3{1.0, 1.0, 1.0}
+	// game.worldBlocks[1].color = mgl32.Vec4{0.1, 1.0, 0.1, 1.0}
 
 	// world block 2
-	game.worldBlocks[1] = new(block)
-	game.worldBlocks[1].pos = mgl32.Vec3{-5.0, 0.0, 0.0}
-	game.worldBlocks[1].scale = mgl32.Vec3{2.0, 2.0, 2.0}
-	game.worldBlocks[1].color = mgl32.Vec4{1.0, 0.1, 0.1, 1.0}
+	game.EditorCreateWorldBlock(
+		mgl32.Vec3{-7.0, -2.0, -2.0},
+		mgl32.Vec3{4.0, 4.0, 4.0},
+		mgl32.Vec4{1.0, 0.1, 0.1, 1.0},
+	)
+	// game.worldBlocks[1] = new(worldBlock)
+	// game.worldBlocks[1].pos = mgl32.Vec3{-5.0, 0.0, 0.0}
+	// game.worldBlocks[1].scale = mgl32.Vec3{2.0, 2.0, 2.0}
+	// game.worldBlocks[1].color = mgl32.Vec4{1.0, 0.1, 0.1, 1.0}
 
 	// world block 3
-	game.worldBlocks[2] = new(block)
-	game.worldBlocks[2].pos = mgl32.Vec3{0.0, -3.0, 0.0}
-	game.worldBlocks[2].scale = mgl32.Vec3{10.0, 1.0, 10.0}
-	game.worldBlocks[2].color = mgl32.Vec4{0.1, 0.1, 1.0, 1.0}
+	game.EditorCreateWorldBlock(
+		mgl32.Vec3{-10.0, -4.0, -10.0},
+		mgl32.Vec3{20.0, 2.0, 20.0},
+		mgl32.Vec4{0.1, 0.1, 1.0, 1.0},
+	)
+	// game.worldBlocks[2] = new(worldBlock)
+	// game.worldBlocks[2].pos = mgl32.Vec3{0.0, -3.0, 0.0}
+	// game.worldBlocks[2].scale = mgl32.Vec3{10.0, 1.0, 10.0}
+	// game.worldBlocks[2].color = mgl32.Vec4{0.1, 0.1, 1.0, 1.0}
 
 	// create a camera
 	arcballCamera := new(arcballCamera)
@@ -214,7 +165,11 @@ func NewGame(glCtx GlContext) (*Game, error) {
 
 // Update updates the game models
 func (game *Game) Update(dt float32, inputs map[GameInput]bool) {
-	/*
+	if inputs[GameInputEditModeToggle] {
+		game.isEditMode = !game.isEditMode
+	}
+
+	if game.isEditMode {
 		player := game.playerBlock
 		camera := game.camera.(*arcballCamera)
 		eyePos := camera.getEyePos()
@@ -228,259 +183,73 @@ func (game *Game) Update(dt float32, inputs map[GameInput]bool) {
 			player.pos.Y(),
 			player.pos.Z(),
 		)
-	*/
-
-	if inputs[GameInputEditModeToggle] {
-		game.isEditMode = !game.isEditMode
-	}
-
-	game.updatePlayerBlock(dt, inputs)
-	game.updateCamera(dt, inputs)
-}
-
-func (game *Game) updatePlayerBlock(dt float32, inputs map[GameInput]bool) {
-	player := game.playerBlock
-
-	var vx, vy, vz float32
-	if inputs[GameInputPlayerMoveLeft] {
-		vx = playerSpeed
-	} else if inputs[GameInputPlayerMoveRight] {
-		vx = -1 * playerSpeed
-	}
-	if inputs[GameInputPlayerMoveForward] {
-		vz = playerSpeed
-	} else if inputs[GameInputPlayerMoveBack] {
-		vz = -1 * playerSpeed
-	}
-
-	if !game.isEditMode {
-		vy = -1 * gravitySpeed
 	} else {
-		if inputs[GameInputEditModeMoveUp] {
-			vy = playerSpeed
-		} else if inputs[GameInputEditModeMoveDown] {
-			vy = -1 * playerSpeed
-		}
+		game.Log = ""
 	}
 
-	player.velocity = mgl32.Vec3{vx, vy, vz}
-	// game.Log += fmt.Sprintf("<br/>Player Velocity: (vx: %.2f\tvy: %.2f\tvz: %.2f)\n", player.velocity.X(), player.velocity.Y(), player.velocity.Z())
-
-	collisions := game.checkForCollisions(dt, player, game.worldBlocks)
-	if !game.isEditMode {
-		player.pos = game.processCollisions(dt, player, collisions)
-	} else {
-		player.pos = player.pos.Add(player.velocity.Mul(dt / 1000))
-	}
+	game.playerBlock.update(game, dt, inputs)
+	game.camera.update(game, dt, inputs)
 }
 
-func (game *Game) updateCamera(dt float32, inputs map[GameInput]bool) {
-	camera := game.camera.(*arcballCamera)
-	player := game.playerBlock
+// EditorCreateWorldBlock editor function to create a new world block.
+// pos = coordinates for right, bottom, back vertex of the block.
+// dimensions = width, height, & length of the block.
+// color = rgba values for the block color.
+// returns id of the new block
+func (game *Game) EditorCreateWorldBlock(pos, dimensions mgl32.Vec3, color mgl32.Vec4) uint32 {
+	newBlock := new(worldBlock)
+	newBlock.id = game.lastWorldBlockId + 1 // NOTE: not thread safe...
+	game.lastWorldBlockId = newBlock.id
+	game.worldBlocks[newBlock.id] = newBlock
 
-	var dyaw float32
-	if inputs[GameInputCameraRotateLeft] {
-		dyaw = -1 * cameraSpeed / 1000.0
-	} else if inputs[GameInputCameraRotateRight] {
-		dyaw = cameraSpeed / 1000.0
-	}
+	game.EditorUpdateWorldBlock(newBlock.id, pos, dimensions, color)
 
-	var dzoom float32
-	if inputs[GameInputCameraZoomIn] {
-		dzoom = -1 * cameraSpeed / 1000.0
-	} else if inputs[GameInputCameraZoomOut] {
-		dzoom = cameraSpeed / 1000.0
-	}
-
-	camera.lookAt = player.pos
-	camera.yaw = f32LimitBetween(camera.yaw+dyaw, 1.5, 2.5)
-	camera.zoom = f32LimitBetween(camera.zoom+dzoom, 1.0, 5.0)
-	// fmt.Printf("camera: (yaw: %.5f, zoom: %.5f)\n", camera.yaw, camera.zoom)
+	return newBlock.id
 }
 
-func (game *Game) checkForCollisions(dt float32, blk *block, collidables []*block) []*block {
-	dLeft := dt / 1000 * f32Max(0.0, blk.velocity.X())
-	dRight := dt / 1000 * f32Max(0.0, -1*blk.velocity.X())
-	dUp := dt / 1000 * f32Max(0.0, blk.velocity.Y())
-	dDown := dt / 1000 * f32Max(0.0, -1*blk.velocity.Y())
-	dForward := dt / 1000 * f32Max(0.0, blk.velocity.Z())
-	dBackward := dt / 1000 * f32Max(0.0, -1*blk.velocity.Z())
+// EditorUpdateWorldBlock editor function to update a existing world block
+// id = id of the block to update.
+// pos = coordinates for right, bottom, back vertex of the block.
+// dimensions = width, height, & length of the block.
+// color = rgba values for the block color.
+func (game *Game) EditorUpdateWorldBlock(id uint32, pos, dimensions mgl32.Vec3, color mgl32.Vec4) {
+	block := game.worldBlocks[id]
 
-	blkLeft := blk.pos.X() + blk.scale.X()
-	blkRight := blk.pos.X() - blk.scale.X()
-	blkTop := blk.pos.Y() + blk.scale.Y()
-	blkBottom := blk.pos.Y() - blk.scale.Y()
-	blkFront := blk.pos.Z() + blk.scale.Z()
-	blkBack := blk.pos.Z() - blk.scale.Z()
-
-	var collisions []*block
-
-	for _, collidable := range collidables {
-		collidableLeft := collidable.pos.X() + collidable.scale.X()
-		if blkRight-dRight >= collidableLeft {
-			continue
-		}
-
-		collidableRight := collidable.pos.X() - collidable.scale.X()
-		if blkLeft+dLeft <= collidableRight {
-			continue
-		}
-
-		collidableTop := collidable.pos.Y() + collidable.scale.Y()
-		if blkBottom-dDown >= collidableTop {
-			continue
-		}
-
-		collidableBottom := collidable.pos.Y() - collidable.scale.Y()
-		if blkTop+dUp <= collidableBottom {
-			continue
-		}
-
-		collidableFront := collidable.pos.Z() + collidable.scale.Z()
-		if blkBack-dBackward >= collidableFront {
-			continue
-		}
-
-		collidableBack := collidable.pos.Z() - collidable.scale.Z()
-		if blkFront+dForward <= collidableBack {
-			continue
-		}
-
-		// fmt.Printf("collision detected - block %d\n", blockNum)
-		collisions = append(collisions, collidable)
-	}
-
-	return collisions
+	block.color = color
+	block.scale = dimensions.Mul(0.5)
+	block.pos = pos.Add(block.scale)
 }
 
-func (game *Game) processCollisions(dt float32, blk *block, collisions []*block) mgl32.Vec3 {
-	dX := dt / 1000 * blk.velocity.X()
-	dY := dt / 1000 * blk.velocity.Y()
-	dZ := dt / 1000 * blk.velocity.Z()
-
-	blkLeft := blk.pos.X() + blk.scale.X()
-	blkRight := blk.pos.X() - blk.scale.X()
-	blkTop := blk.pos.Y() + blk.scale.Y()
-	blkBottom := blk.pos.Y() - blk.scale.Y()
-	blkFront := blk.pos.Z() + blk.scale.Z()
-	blkBack := blk.pos.Z() - blk.scale.Z()
-
-	for _, collision := range collisions {
-		collisionLeft := collision.pos.X() + collision.scale.X()
-		collisionRight := collision.pos.X() - collision.scale.X()
-		collisionTop := collision.pos.Y() + collision.scale.Y()
-		collisionBottom := collision.pos.Y() - collision.scale.Y()
-		collisionFront := collision.pos.Z() + collision.scale.Z()
-		collisionBack := collision.pos.Z() - collision.scale.Z()
-
-		// fmt.Println("Processing Collision:")
-		// fmt.Printf("collision: left: %.5f\tright: %.5f\ttop: %.5f,\tbottom: %.5f,\tfront: %.5f\tback: %.5f\n", collisionLeft, collisionRight, collisionTop, collisionBottom, collisionFront, collisionBack)
-		// fmt.Printf("blk: left: %.5f\tright: %.5f\ttop: %.5f,\tbottom: %.5f,\tfront: %.5f\tback: %.5f\n", blkLeft, blkRight, blkTop, blkBottom, blkFront, blkBack)
-		// fmt.Printf("dX: %.5f\tdY: %.5f\tdZ: %.5f\n", dX, dY, dZ)
-
-		// find the axis that collides later in time and adjust it
-		var timeOfXAxisCollision, timeOfYAxisCollision, timeOfZAxisCollision float32
-		var distanceToCollisionX, distanceToCollisionY, distanceToCollisionZ float32
-
-		if dX > 0 {
-			distanceToCollisionX = collisionRight - blkLeft
-			timeOfXAxisCollision = dt * distanceToCollisionX / dX
-		} else if dX < 0 {
-			distanceToCollisionX = collisionLeft - blkRight
-			timeOfXAxisCollision = dt * distanceToCollisionX / dX
-		}
-
-		if dY > 0 {
-			distanceToCollisionY = collisionBottom - blkTop
-			timeOfYAxisCollision = dt * distanceToCollisionY / dY
-		} else if dY < 0 {
-			distanceToCollisionY = collisionTop - blkBottom
-			timeOfYAxisCollision = dt * distanceToCollisionY / dY
-		}
-
-		if dZ > 0 {
-			distanceToCollisionZ = collisionBack - blkFront
-			timeOfZAxisCollision = dt * distanceToCollisionZ / dZ
-		} else if dZ < 0 {
-			distanceToCollisionZ = collisionFront - blkBack
-			timeOfZAxisCollision = dt * distanceToCollisionZ / dZ
-		}
-
-		// fmt.Printf("timeOfXAxisCollision: %.5f\ttimeOfYAxisCollision: %.5f\ttimeOfZAxisCollision: %.5f\n", timeOfXAxisCollision, timeOfYAxisCollision, timeOfZAxisCollision)
-		// fmt.Printf("distanceToCollisionX: %.5f\tdistanceToCollisionY: %.5f\tdistanceToCollisionZ: %.5f\n", distanceToCollisionX, distanceToCollisionY, distanceToCollisionZ)
-		if timeOfXAxisCollision >= timeOfYAxisCollision && timeOfXAxisCollision >= timeOfZAxisCollision {
-			dX = distanceToCollisionX // if dX >= 0 then left side else right side
-		}
-
-		if timeOfYAxisCollision >= timeOfXAxisCollision && timeOfYAxisCollision >= timeOfZAxisCollision {
-			dY = distanceToCollisionY
-		}
-
-		if timeOfZAxisCollision >= timeOfXAxisCollision && timeOfZAxisCollision >= timeOfYAxisCollision {
-			dZ = distanceToCollisionZ
-		}
-	}
-
-	newPos := blk.pos.Add(mgl32.Vec3{dX, dY, dZ})
-	newPos[0] = f32Round(newPos[0], 2)
-	newPos[1] = f32Round(newPos[1], 2)
-	newPos[2] = f32Round(newPos[2], 2)
-
-	/*
-		if len(collisions) > 0 {
-			newPosLeft := newPos.X() + blk.scale.X()
-			newPosRight := newPos.X() - blk.scale.X()
-			newPosTop := newPos.Y() + blk.scale.Y()
-			newPosBottom := newPos.Y() - blk.scale.Y()
-			newPosFront := newPos.Z() + blk.scale.Z()
-			newPosBack := newPos.Z() - blk.scale.Z()
-
-			fmt.Println("Collisions Processed:")
-			fmt.Printf("left: %.5f\tright: %.5f\ttop: %.5f,\tbottom: %.5f,\tfront: %.5f\tback: %.5f\n", newPosLeft, newPosRight, newPosTop, newPosBottom, newPosFront, newPosBack)
-			fmt.Printf("dX: %.5f\tdY: %.5f\tdZ: %.5f\n", dX, dY, dZ)
-		}
-	*/
-
-	return newPos
+// EditorDeleteWorldBlock editor function to delete a block
+// id = id of the block to delete
+func (game *Game) EditorDeleteWorldBlock(id uint32) {
+	delete(game.worldBlocks, id)
 }
 
 // Render renders the frame
 func (game *Game) Render() {
-	if err := game.gl.ClearScreen(0.0, 0.0, 0.0); err != nil {
+	color := mgl32.Vec3{0.9, 0.9, 0.9}
+	if game.isEditMode {
+		color = mgl32.Vec3{0.0, 0.0, 0.0}
+	}
+
+	if err := game.gl.ClearScreen(color.X(), color.Y(), color.Z()); err != nil {
 		panic(err)
 	}
 
 	viewMatrix := game.camera.getViewMatrix()
 
 	// Render player
-	if err := game.renderBlock(game.playerBlock, viewMatrix); err != nil {
+	if err := game.playerBlock.render(game, viewMatrix); err != nil {
 		panic(err)
 	}
 
 	// Render world
 	for _, block := range game.worldBlocks {
-		if err := game.renderBlock(block, viewMatrix); err != nil {
+		if err := block.render(game, viewMatrix); err != nil {
 			panic(err)
 		}
 	}
-}
-
-func (game *Game) renderBlock(block *block, viewMatrix mgl32.Mat4) error {
-	scaleMatrix := mgl32.Scale3D(block.scale.X(), block.scale.Y(), block.scale.Z())
-	translateMatrix := mgl32.Translate3D(block.pos.X(), block.pos.Y(), block.pos.Z())
-
-	modelMatrix := mgl32.Ident4().Mul4(translateMatrix).Mul4(scaleMatrix)
-
-	// not magic - shader is initialized with pointers to these values as uniforms
-	game.modelViewMatrix = viewMatrix.Mul4(modelMatrix)
-	game.normalMatrix = game.modelViewMatrix.Inv().Transpose()
-	game.color = block.color
-
-	if err := game.gl.RenderTriangles(game.blockMesh, game.blockShader); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 var blockVerticies = [...]float32{

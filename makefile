@@ -17,7 +17,7 @@ run: ./static/bundle.wasm ./server/server
 	GOOS=js GOARCH=wasm go build -o ./wasm/bundle.wasm ./wasm/
 
 ./core/core:
-	go build -o ./core/core ./core/core.go
+	go build -o ./core/core ./core/
 
 # Clean targets
 clean: clean-server clean-static clean-wasm clean-core

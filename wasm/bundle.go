@@ -126,7 +126,9 @@ func main() {
 		js.Global().Call("requestAnimationFrame", renderFrame)
 		clearMap(wasKeyPressedMap)
 
-		// gl.DocumentEl.Call("getElementById", "game_log").Set("innerHTML", game.Log)
+		if len(game.Log) > 0 || inputMap[core.GameInputEditModeToggle] {
+			fmt.Println("Game Log Updated")
+		}
 		return nil
 	})
 
