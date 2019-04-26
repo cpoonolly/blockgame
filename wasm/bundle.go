@@ -185,6 +185,7 @@ func main() {
 		var htmlBuilder strings.Builder
 
 		htmlBuilder.WriteString(`
+			<button class='export-btn' onclick='exportGame()'>Export</button>
 			<button class='new-block-btn' onclick='createNewBlock("World Block")'>New World Block</button>
 			<button class='new-block-btn' onclick='createNewBlock("Enemy")'>Enemy</button>
 			<div class='edit-blocks'>
@@ -210,6 +211,12 @@ func main() {
 
 		gl.DocumentEl.Call("getElementById", "container_editor_panel").Set("innerHTML", htmlBuilder.String())
 	}
+
+	exportGame := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		js.Global().Call("alert", game.ExportAsJSON())
+
+		return nil
+	})
 
 	createNewBlock := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		blockType := args[0].String()
@@ -310,6 +317,7 @@ func main() {
 	defer onKeyDown.Release()
 	defer onKeyUp.Release()
 	defer onCanvasResize.Release()
+	defer exportGame.Release()
 	defer createNewBlock.Release()
 	defer updateBlock.Release()
 	defer deleteBlock.Release()
@@ -318,6 +326,7 @@ func main() {
 	js.Global().Call("addEventListener", "keydown", onKeyDown)
 	js.Global().Call("addEventListener", "keyup", onKeyUp)
 	js.Global().Call("addEventListener", "resize", onCanvasResize)
+	js.Global().Set("exportGame", exportGame)
 	js.Global().Set("createNewBlock", createNewBlock)
 	js.Global().Set("updateBlock", updateBlock)
 	js.Global().Set("deleteBlock", deleteBlock)
