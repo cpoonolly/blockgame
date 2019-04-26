@@ -114,6 +114,8 @@ func NewGame(glCtx GlContext) (*Game, error) {
 	// create a camera
 	arcballCamera := new(arcballCamera)
 	arcballCamera.up = mgl32.Vec3{0.0, 1.0, 0.0}
+	arcballCamera.yaw = 2.0
+	arcballCamera.zoom = 5.0
 	game.camera = arcballCamera
 
 	game.IsEditModeEnabled = true

@@ -52,6 +52,6 @@ func (camera *arcballCamera) update(game *Game, dt float32, inputs map[GameInput
 	}
 
 	camera.lookAt = player.pos
-	camera.yaw = f32LimitBetween(camera.yaw+dyaw, 1.5, 2.5)
+	camera.yaw = f32LimitBetween(camera.yaw+dyaw, 1.5, 3.5)
 	camera.zoom = f32LimitBetween(camera.zoom+dzoom, 1.0, 5.0)
 }
