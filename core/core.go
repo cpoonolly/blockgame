@@ -190,6 +190,27 @@ func (game *Game) Render() {
 	}
 }
 
+// OnViewPortChange recalculates the projection matrix after a viewport adjustment
+func (game *Game) OnViewPortChange() {
+	game.gl.UpdateViewport()
+
+	viewportWidth := float32(game.gl.GetViewportWidth())
+	viewportHeight := float32(game.gl.GetViewportHeight())
+	aspectRatio := viewportWidth / viewportHeight
+
+	game.projMatrix = mgl32.Perspective(mgl32.DegToRad(45.0), aspectRatio, 1, 50.0)
+}
+
+// GameOver the game is over
+func (game *Game) GameOver() {
+	// GAME OVER
+	game.player.pos = mgl32.Vec3{0, 0, 0}
+
+	for _, enemy := range game.enemies {
+		enemy.pos = enemy.start
+	}
+}
+
 // CreateWorldBlock editor function to create a new world block.
 func (game *Game) CreateWorldBlock(pos, dimensions, color [3]float32) uint32 {
 	newBlock := new(worldBlock)
@@ -269,27 +290,6 @@ func (game *Game) GetEnemyDimensions(id uint32) [3]float32 {
 // GetEnemyColor get's the rgb color (in that order) of the block
 func (game *Game) GetEnemyColor(id uint32) [3]float32 {
 	return game.enemies[id].color.Vec3()
-}
-
-// OnViewPortChange recalculates the projection matrix after a viewport adjustment
-func (game *Game) OnViewPortChange() {
-	game.gl.UpdateViewport()
-
-	viewportWidth := float32(game.gl.GetViewportWidth())
-	viewportHeight := float32(game.gl.GetViewportHeight())
-	aspectRatio := viewportWidth / viewportHeight
-
-	game.projMatrix = mgl32.Perspective(mgl32.DegToRad(45.0), aspectRatio, 1, 50.0)
-}
-
-// GameOver the game is over
-func (game *Game) GameOver() {
-	// GAME OVER
-	game.player.pos = mgl32.Vec3{0, 0, 0}
-
-	for _, enemy := range game.enemies {
-		enemy.pos = enemy.start
-	}
 }
 
 var blockVerticies = [...]float32{

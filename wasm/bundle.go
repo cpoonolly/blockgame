@@ -148,7 +148,7 @@ func main() {
 		return fmt.Sprintf(`
 			<div class='edit-block-attr'>
 				<label class='edit-block-attr-label'>%[2]s:</label>
-				<input id='edit-block-%[3]s-%[1]d' class='edit-block-attr-val' type='number' value='%.2[4]f'/>
+				<input id='edit-block-%[3]s-%[1]d' class='edit-block-attr-val' type='number' step='0.1' value='%.1[4]f'/>
 			</div>
 			`,
 			blockID,
