@@ -142,12 +142,51 @@ func main() {
 	/* Editor Actions */
 
 	worldBlockIDs := make([]uint32, 0)
+	enemyBlockIDs := make([]uint32, 0)
+
+	renderEditBlockAttr := func(blockID uint32, label, attrName string, value float32) string {
+		return fmt.Sprintf(`
+			<div class='edit-block-attr'>
+				<label class='edit-block-attr-label'>%[2]s:</label>
+				<input id='edit-block-%[3]s-%[1]d' class='edit-block-attr-val' type='number' value='%.2[4]f'/>
+			</div>
+			`,
+			blockID,
+			label,
+			attrName,
+			value,
+		)
+	}
+
+	renderEditBlockPanel := func(blockID uint32, blockType string, position, dimensions, color [3]float32) string {
+		return fmt.Sprintf(`
+				<div id='edit-block-%[1]d' class='edit-block'>
+					<h5 class='edit-block-title'>%[2]s: %[1]d</h5><br/>
+					%[3]s %[4]s %[5]s %[6]s %[7]s %[8]s %[9]s %[10]s %[11]s
+					<button class='edit-block-update-btn' onclick='updateBlock(%[1]d, "%[2]s")'>Update</button>
+					<button class='edit-block-delete-btn' onclick='deleteBlock(%[1]d, "%[2]s")'>Delete</button>
+				</div>
+			`,
+			blockID,
+			blockType,
+			renderEditBlockAttr(blockID, "x", "posx", position[0]),
+			renderEditBlockAttr(blockID, "y", "posy", position[1]),
+			renderEditBlockAttr(blockID, "z", "posz", position[2]),
+			renderEditBlockAttr(blockID, "width", "dimx", dimensions[0]),
+			renderEditBlockAttr(blockID, "height", "dimy", dimensions[1]),
+			renderEditBlockAttr(blockID, "length", "dimz", dimensions[2]),
+			renderEditBlockAttr(blockID, "r", "colr", color[0]),
+			renderEditBlockAttr(blockID, "g", "colg", color[1]),
+			renderEditBlockAttr(blockID, "b", "colb", color[2]),
+		)
+	}
 
 	renderEditorPanel := func() {
 		var htmlBuilder strings.Builder
 
 		htmlBuilder.WriteString(`
-			<button class='new-block-btn' onclick='createNewBlock()'>New Block</button>
+			<button class='new-block-btn' onclick='createNewBlock("World Block")'>New World Block</button>
+			<button class='new-block-btn' onclick='createNewBlock("Enemy")'>Enemy</button>
 			<div class='edit-blocks'>
 		`)
 
@@ -156,60 +195,15 @@ func main() {
 			dimensions := game.GetWorldBlockDimensions(worldBlockID)
 			color := game.GetWorldBlockColor(worldBlockID)
 
-			htmlBuilder.WriteString(fmt.Sprintf(`
-					<div id='edit-block-%[1]d' class='edit-block'>
-						<h5 class='edit-block-title'>Block: %[1]d</h5><br/>
-						<div class='edit-block-attr'>
-							<label class='edit-block-attr-label'>x:</label>
-							<input id='edit-block-posx-%[1]d' class='edit-block-attr-val' type='number' value='%.2[2]f'/>
-						</div>
-						<div class='edit-block-attr'>
-							<label class='edit-block-attr-label'>y:</label>
-							<input id='edit-block-posy-%[1]d' class='edit-block-attr-val' type='number' value='%.2[3]f'/>
-						</div>
-						<div class='edit-block-attr'>
-							<label class='edit-block-attr-label'>z:</label>
-							<input id='edit-block-posz-%[1]d' class='edit-block-attr-val' type='number' value='%.2[4]f'/>
-						</div>
-						<div class='edit-block-attr'>
-							<label class='edit-block-attr-label'>width:</label>
-							<input id='edit-block-dimx-%[1]d' class='edit-block-attr-val' type='number' value='%.2[5]f'/>
-						</div>
-						<div class='edit-block-attr'>
-							<label class='edit-block-attr-label'>height:</label>
-							<input id='edit-block-dimy-%[1]d' class='edit-block-attr-val' type='number' value='%.2[6]f'/>
-						</div>
-						<div class='edit-block-attr'>
-							<label class='edit-block-attr-label'>length:</label>
-							<input id='edit-block-dimz-%[1]d' class='edit-block-attr-val' type='number' value='%.2[7]f'/>
-						</div>
-						<div class='edit-block-attr'>
-							<label class='edit-block-attr-label'>r:</label>
-							<input id='edit-block-colr-%[1]d' class='edit-block-attr-val' type='number' value='%.2[8]f'/>
-						</div>
-						<div class='edit-block-attr'>
-							<label class='edit-block-attr-label'>g:</label>
-							<input id='edit-block-colg-%[1]d' class='edit-block-attr-val' type='number' value='%.2[9]f'/>
-						</div>
-						<div class='edit-block-attr'>
-							<label class='edit-block-attr-label'>b:</label>
-							<input id='edit-block-colb-%[1]d' class='edit-block-attr-val' type='number' value='%.2[10]f'/>
-						</div>
-						<button class='edit-block-update-btn' onclick='updateBlock(%[1]d)'>Update</button>
-						<button class='edit-block-delete-btn' onclick='deleteBlock(%[1]d)'>Delete</button>
-					</div>
-				`,
-				worldBlockID,
-				position[0],
-				position[1],
-				position[2],
-				dimensions[0],
-				dimensions[1],
-				dimensions[2],
-				color[0],
-				color[1],
-				color[2],
-			))
+			htmlBuilder.WriteString(renderEditBlockPanel(worldBlockID, "World Block", position, dimensions, color))
+		}
+
+		for _, enemyBlockID := range enemyBlockIDs {
+			position := game.GetEnemyPosition(enemyBlockID)
+			dimensions := game.GetEnemyDimensions(enemyBlockID)
+			color := game.GetEnemyColor(enemyBlockID)
+
+			htmlBuilder.WriteString(renderEditBlockPanel(enemyBlockID, "Enemy", position, dimensions, color))
 		}
 
 		htmlBuilder.WriteString("</div>")
@@ -218,12 +212,20 @@ func main() {
 	}
 
 	createNewBlock := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		blockType := args[0].String()
 		position := [3]float32{-1, -1, -1}
 		dimensions := [3]float32{1, 1, 1}
-		color := [3]float32{.7, .7, .7}
 
-		newBlockID := game.EditorCreateWorldBlock(position, dimensions, color)
-		worldBlockIDs = append(worldBlockIDs, newBlockID)
+		var newBlockID uint32
+		if blockType == "World Block" {
+			color := [3]float32{.7, .7, .7}
+			newBlockID = game.CreateWorldBlock(position, dimensions, color)
+			worldBlockIDs = append(worldBlockIDs, newBlockID)
+		} else if blockType == "Enemy" {
+			color := [3]float32{1, .3, .3}
+			newBlockID = game.CreateEnemy(position, dimensions, color)
+			enemyBlockIDs = append(enemyBlockIDs, newBlockID)
+		}
 
 		renderEditorPanel()
 
@@ -234,6 +236,7 @@ func main() {
 		var position, dimensions, color [3]float32
 
 		blockID := uint32(args[0].Int())
+		blockType := args[1].String()
 
 		getAttribValue := func(attrName string) float32 {
 			attrID := fmt.Sprintf("edit-block-%s-%d", attrName, blockID)
@@ -259,7 +262,12 @@ func main() {
 		color[1] = getAttribValue("colg")
 		color[2] = getAttribValue("colb")
 
-		game.EditorUpdateWorldBlock(blockID, position, dimensions, color)
+		if blockType == "World Block" {
+			game.UpdateWorldBlock(blockID, position, dimensions, color)
+		} else if blockType == "Enemy" {
+			game.UpdateEnemy(blockID, position, dimensions, color)
+		}
+
 		renderEditorPanel()
 
 		return nil
@@ -267,15 +275,29 @@ func main() {
 
 	deleteBlock := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		blockID := uint32(args[0].Int())
+		blockType := args[1].String()
 
-		game.EditorDeleteWorldBlock(blockID)
+		if blockType == "World Block" {
+			game.DeleteWorldBlock(blockID)
 
-		// remove block from ids
-		for index, worldBlockID := range worldBlockIDs {
-			if worldBlockID == blockID {
-				copy(worldBlockIDs[index:], worldBlockIDs[index+1:])
-				worldBlockIDs = worldBlockIDs[:len(worldBlockIDs)-1]
-				break
+			// remove block from ids
+			for index, worldBlockID := range worldBlockIDs {
+				if worldBlockID == blockID {
+					copy(worldBlockIDs[index:], worldBlockIDs[index+1:])
+					worldBlockIDs = worldBlockIDs[:len(worldBlockIDs)-1]
+					break
+				}
+			}
+		} else if blockType == "Enemy" {
+			game.DeleteEnemy(blockID)
+
+			// remove block from ids
+			for index, enemyBlockID := range enemyBlockIDs {
+				if enemyBlockID == blockID {
+					copy(enemyBlockIDs[index:], enemyBlockIDs[index+1:])
+					enemyBlockIDs = enemyBlockIDs[:len(enemyBlockIDs)-1]
+					break
+				}
 			}
 		}
 

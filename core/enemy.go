@@ -1,13 +1,13 @@
 package core
 
 import (
-	"fmt"
 	"github.com/go-gl/mathgl/mgl32"
 )
 
 const enemyAcceleration float32 = playerAcceleration * .75
 
 type enemy struct {
+	id    uint32
 	start mgl32.Vec3
 	pos   mgl32.Vec3
 	scale mgl32.Vec3
@@ -52,6 +52,7 @@ func (enemy *enemy) update(game *Game, dt float32, inputs map[GameInput]bool) {
 	enemyPos := enemy.pos
 
 	if game.IsEditModeEnabled {
+		enemy.pos = enemy.start
 		return
 	}
 
