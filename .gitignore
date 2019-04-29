@@ -1,0 +1,4 @@
+core/core
+server/server
+static/bundle.wasm
+wasm/bundle.wasm
