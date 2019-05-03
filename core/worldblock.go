@@ -4,15 +4,13 @@ import (
 	"github.com/go-gl/mathgl/mgl32"
 )
 
+var worldBlockColorDefault = mgl32.Vec4{0.7, 0.7, 0.7, 1.0}
+var worldBlockColorHighlighted = mgl32.Vec4{.99, .84, .20, 1.0}
+
 type worldBlock struct {
-	id    uint32
 	pos   mgl32.Vec3
 	scale mgl32.Vec3
 	color mgl32.Vec4
-}
-
-func (worldBlock *worldBlock) position() mgl32.Vec3 {
-	return worldBlock.pos
 }
 
 func (worldBlock *worldBlock) left() float32 {
@@ -37,6 +35,14 @@ func (worldBlock *worldBlock) front() float32 {
 
 func (worldBlock *worldBlock) back() float32 {
 	return worldBlock.pos.Z() - worldBlock.scale.Z()
+}
+
+func (worldBlock *worldBlock) update(game *Game, dt float32, inputs map[GameInput]bool) {
+	if game.IsEditModeEnabled && checkForStaticOnStaticCollision(game.player, worldBlock) {
+		worldBlock.color = worldBlockColorHighlighted
+	} else {
+		worldBlock.color = worldBlockColorDefault
+	}
 }
 
 func (worldBlock *worldBlock) render(game *Game, viewMatrix mgl32.Mat4) error {

@@ -2,13 +2,13 @@ package core
 
 import (
 	"encoding/json"
+
 	"github.com/go-gl/mathgl/mgl32"
 )
 
 type blockData struct {
 	Position   [3]float32
 	Dimensions [3]float32
-	Color      [3]float32
 }
 
 type gameData struct {
@@ -17,31 +17,45 @@ type gameData struct {
 	Enemies []blockData
 }
 
+func getBlockPosition(block collidable) mgl32.Vec3 {
+	return mgl32.Vec3{block.right(), block.bottom(), block.back()}
+}
+
+func getBlockPosFromData(data blockData) mgl32.Vec3 {
+	return mgl32.Vec3(data.Position).Add(getBlockScaleFromData(data))
+}
+
+func getBlockDimensions(block collidable) mgl32.Vec3 {
+	return mgl32.Vec3{block.left() - block.right(), block.top() - block.back(), block.front() - block.back()}
+}
+
+func getBlockScaleFromData(data blockData) mgl32.Vec3 {
+	return mgl32.Vec3(data.Dimensions).Mul(0.5)
+}
+
 // ExportAsJSON exports the game into json data
 func (game *Game) ExportAsJSON() string {
 	var data gameData
 
-	data.Player.Position = game.player.pos
-	data.Player.Color = game.player.color.Vec3()
+	data.Player.Position = getBlockDimensions(game.player)
+	data.Player.Dimensions = getBlockDimensions(game.player)
 
 	data.World = make([]blockData, 0, len(game.worldBlocks))
-	for worldBlockID := range game.worldBlocks {
+	for _, worldBlock := range game.worldBlocks {
 		var worldBlockData blockData
 
-		worldBlockData.Position = game.GetWorldBlockPosition(worldBlockID)
-		worldBlockData.Dimensions = game.GetWorldBlockDimensions(worldBlockID)
-		worldBlockData.Color = game.GetWorldBlockColor(worldBlockID)
+		worldBlockData.Position = getBlockPosition(worldBlock)
+		worldBlockData.Dimensions = getBlockDimensions(worldBlock)
 
 		data.World = append(data.World, worldBlockData)
 	}
 
 	data.Enemies = make([]blockData, 0, len(game.enemies))
-	for enemyID := range game.enemies {
+	for _, enemy := range game.enemies {
 		var enemyData blockData
 
-		enemyData.Position = game.GetEnemyPosition(enemyID)
-		enemyData.Dimensions = game.GetEnemyDimensions(enemyID)
-		enemyData.Color = game.GetEnemyColor(enemyID)
+		enemyData.Position = getBlockPosition(enemy)
+		enemyData.Dimensions = getBlockDimensions(enemy)
 
 		data.World = append(data.World, enemyData)
 	}
@@ -52,29 +66,34 @@ func (game *Game) ExportAsJSON() string {
 }
 
 // ImportFromJSON imports the game from json data. returns worldBlockIDs enemyIds or an error
-func (game *Game) ImportFromJSON(jsonData string) ([]uint32, []uint32, error) {
+func (game *Game) ImportFromJSON(jsonData string) error {
 	var data gameData
 
 	if err := json.Unmarshal([]byte(jsonData), &data); err != nil {
-		return nil, nil, err
+		return err
 	}
 
-	game.player.pos = data.Player.Position
-	game.player.color = mgl32.Vec3(data.Player.Color).Vec4(1.0)
+	game.player.pos = getBlockPosFromData(data.Player)
 
-	worldBlockIDs := make([]uint32, 0, len(data.World))
-	game.worldBlocks = make(map[uint32]*worldBlock)
+	game.worldBlocks = make([]*worldBlock, 0, len(data.World))
 	for _, worldBlockData := range data.World {
-		worldBlockID := game.CreateWorldBlock(worldBlockData.Position, worldBlockData.Dimensions, worldBlockData.Color)
-		worldBlockIDs = append(worldBlockIDs, worldBlockID)
+		worldBlock := new(worldBlock)
+
+		worldBlock.pos = getBlockPosFromData(worldBlockData)
+		worldBlock.scale = getBlockScaleFromData(worldBlockData)
+
+		game.worldBlocks = append(game.worldBlocks, worldBlock)
 	}
 
-	enemyIDs := make([]uint32, 0, len(data.Enemies))
-	game.enemies = make(map[uint32]*enemy)
+	game.enemies = make([]*enemy, 0, len(data.Enemies))
 	for _, enemyData := range data.Enemies {
-		enemyID := game.CreateEnemy(enemyData.Position, enemyData.Dimensions, enemyData.Color)
-		enemyIDs = append(enemyIDs, enemyID)
+		enemy := new(enemy)
+
+		enemy.pos = getBlockPosFromData(enemyData)
+		enemy.scale = getBlockScaleFromData(enemyData)
+
+		game.enemies = append(game.enemies, enemy)
 	}
 
-	return worldBlockIDs, enemyIDs, nil
+	return nil
 }

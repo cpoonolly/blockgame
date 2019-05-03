@@ -6,17 +6,15 @@ import (
 
 const enemyAcceleration float32 = playerAcceleration * .75
 
+var enemyColorDefault = mgl32.Vec4{1.0, .3, .3, 1.0}
+var enemyColorHighlighted = mgl32.Vec4{.99, .84, .20, 1.0}
+
 type enemy struct {
-	id    uint32
 	start mgl32.Vec3
 	pos   mgl32.Vec3
 	scale mgl32.Vec3
 	vel   mgl32.Vec3
 	color mgl32.Vec4
-}
-
-func (enemy *enemy) position() mgl32.Vec3 {
-	return enemy.pos
 }
 
 func (enemy *enemy) velocity() mgl32.Vec3 {
@@ -53,6 +51,11 @@ func (enemy *enemy) update(game *Game, dt float32, inputs map[GameInput]bool) {
 
 	if game.IsEditModeEnabled {
 		enemy.pos = enemy.start
+
+		if checkForStaticOnStaticCollision(game.player, enemy) {
+			enemy.color = enemyColorHighlighted
+		}
+
 		return
 	}
 
@@ -82,12 +85,13 @@ func (enemy *enemy) update(game *Game, dt float32, inputs map[GameInput]bool) {
 
 	dPos := enemy.vel.Mul(dt / 1000)
 	for _, worldBlock := range game.worldBlocks {
-		if checkForStaticCollision(dt, dPos, enemy, worldBlock) {
-			dPos = processStaticCollision(dPos, getStaticCollisionDetails(dt, dPos, enemy, worldBlock))
+		if checkForDynamicOnStaticCollision(dPos, enemy, worldBlock) {
+			dPos = processDynamicOnStaticCollisionDetails(dt, dPos, enemy, worldBlock)
 		}
 	}
 
 	enemy.pos = enemy.pos.Add(dPos)
+	enemy.color = enemyColorDefault
 }
 
 func (enemy *enemy) render(game *Game, viewMatrix mgl32.Mat4) error {

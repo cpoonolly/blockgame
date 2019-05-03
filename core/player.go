@@ -2,20 +2,18 @@ package core
 
 import (
 	"fmt"
+
 	"github.com/go-gl/mathgl/mgl32"
 )
 
 const playerAcceleration float32 = 1
 
+var playerColor = mgl32.Vec4{0.3, 0.5, 1.0, 1.0}
+
 type player struct {
 	pos   mgl32.Vec3
 	scale mgl32.Vec3
 	vel   mgl32.Vec3
-	color mgl32.Vec4
-}
-
-func (player *player) position() mgl32.Vec3 {
-	return player.pos
 }
 
 func (player *player) velocity() mgl32.Vec3 {
@@ -81,20 +79,20 @@ func (player *player) update(game *Game, dt float32, inputs map[GameInput]bool) 
 	player.vel[1] = f32LimitBetween(player.vel[1], -1*maxVelocity, maxVelocity)
 	player.vel[2] = f32LimitBetween(player.vel[2], -1*maxVelocity, maxVelocity)
 
-	if game.IsEditModeEnabled {
-		game.Log += fmt.Sprintf("<br/>Player Velocity: (vx: %.2f\tvy: %.2f\tvz: %.2f)\n", player.vel.X(), player.vel.Y(), player.vel.Z())
-	}
-
 	dPos := game.player.vel.Mul(dt / 1000)
 	if !game.IsEditModeEnabled {
 		for _, worldBlock := range game.worldBlocks {
-			if checkForStaticCollision(dt, dPos, player, worldBlock) {
-				dPos = processStaticCollision(dPos, getStaticCollisionDetails(dt, dPos, game.player, worldBlock))
+			if checkForDynamicOnStaticCollision(dPos, player, worldBlock) {
+				dPos = processDynamicOnStaticCollisionDetails(dt, dPos, game.player, worldBlock)
 			}
 		}
 	}
 
 	player.pos = player.pos.Add(dPos)
+
+	if game.IsEditModeEnabled {
+		game.Log += fmt.Sprintf("<br/>Player Velocity: (vx: %.2f\tvy: %.2f\tvz: %.2f)\n", player.vel.X(), player.vel.Y(), player.vel.Z())
+	}
 }
 
 func (player *player) render(game *Game, viewMatrix mgl32.Mat4) error {
@@ -106,7 +104,7 @@ func (player *player) render(game *Game, viewMatrix mgl32.Mat4) error {
 	// not magic - shader is initialized with pointers to these values as uniforms
 	game.modelViewMatrix = viewMatrix.Mul4(modelMatrix)
 	game.normalMatrix = game.modelViewMatrix.Inv().Transpose()
-	game.color = player.color
+	game.color = playerColor
 
 	if err := game.gl.RenderTriangles(game.blockMesh, game.blockShader); err != nil {
 		return err

@@ -36,7 +36,7 @@
       #game_log {
         position: absolute;
         z-index: 2000;
-        color: white;
+        color: black;
       }
 
       #container_editor_panel {
@@ -52,55 +52,16 @@
         z-index: 3000;
       }
 
-      .edit-blocks {
-        height: 100%;
-        overflow-y: scroll;
-      }
-
-      .edit-block-title {
-        margin: 0;
-        width: 100%;
-        font-size: 32px;
-        font-weight: 500;
-      }
-
-      .edit-block {
-        margin: 30px;
-        display: flex;
-        flex-wrap: wrap;
-      }
-
-      .edit-block-attr {
-        width: 30%;
-        padding: 10px 5px;
-      }
-
-      .edit-block-attr-label {
-        font-size: 18px;
-      }
-
       #import-export-val {
         width: 100%;
-        margin-bottom: 7px;
-      }
-
-      .edit-block-attr-val {
-        width: 100px;
-      }
-
-      #import-export-val,
-      .edit-block-attr-val {
         display: block;
         padding: 8px;
-        margin-top: 7px;
+        margin: 7px 0;
         border: 1px solid #ccc;
       }
 
       .export-btn,
-      .import-btn,
-      .new-block-btn,
-      .edit-block-update-btn,
-      .edit-block-delete-btn {
+      .import-btn {
         background-color: #4CAF50; /* Green */
         border: none;
         color: white;
@@ -109,20 +70,7 @@
         text-decoration: none;
         display: inline-block;
         font-size: 16px;
-      }
-
-      .export-btn,
-      .import-btn,
-      .new-block-btn {
         margin-bottom: 5px;
-      }
-
-      .edit-block-delete-btn {
-        margin: 20px 0 0 20px;
-      }
-
-      .edit-block-update-btn {
-        margin: 20px 20px 0 0;
       }
     </style>
 	</head>
@@ -132,7 +80,11 @@
         <p id="game_log"></p>
         <canvas id="canvas_main"></canvas>
       </div>
-      <div id="container_editor_panel"></div>
+      <div id="container_editor_panel">
+        <button class='export-btn' onclick='exportGame()'>Export</button>
+        <button class='import-btn' onclick='importGame()'>Import</button>
+        <textarea id="import-export-val" rows="4"></textarea>
+      </div>
     </div>
   </body>
 </html>

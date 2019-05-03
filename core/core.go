@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+
 	"github.com/go-gl/mathgl/mgl32"
 )
 
@@ -31,6 +32,12 @@ const (
 	GameInputEditModeMoveUp
 	// GameInputEditModeMoveDown input to move the player down
 	GameInputEditModeMoveDown
+	// GameInputEditModeCreateWorldBlock input to create a world block in edit mode
+	GameInputEditModeCreateWorldBlock
+	// GameInputEditModeCreateEnemy input to create a enemy in edit mode
+	GameInputEditModeCreateEnemy
+	// GameInputEditModeDelete input to delete all colliding blocks in edit mode
+	GameInputEditModeDelete
 )
 
 type gameUpdatable interface {
@@ -59,12 +66,12 @@ type Game struct {
 	color           mgl32.Vec4
 
 	player      *player
-	enemies     map[uint32]*enemy
-	worldBlocks map[uint32]*worldBlock
+	enemies     []*enemy
+	worldBlocks []*worldBlock
 	camera      camera
+	editor      *gameEditor
 
 	IsEditModeEnabled bool
-	lastBlockID       uint32
 
 	Log string
 }
@@ -103,13 +110,12 @@ func NewGame(glCtx GlContext) (*Game, error) {
 
 	game.player = new(player)
 	game.player.scale = mgl32.Vec3{0.5, 0.5, 0.5}
-	game.player.color = mgl32.Vec4{.3, .5, 1, 1.0}
 
 	// generate world blocks
-	game.worldBlocks = make(map[uint32]*worldBlock)
+	game.worldBlocks = make([]*worldBlock, 0, 100)
 
 	// generate enemies
-	game.enemies = make(map[uint32]*enemy)
+	game.enemies = make([]*enemy, 0, 20)
 
 	// create a camera
 	arcballCamera := new(arcballCamera)
@@ -118,7 +124,9 @@ func NewGame(glCtx GlContext) (*Game, error) {
 	arcballCamera.zoom = 5.0
 	game.camera = arcballCamera
 
+	// setup edit mode
 	game.IsEditModeEnabled = true
+	game.editor = new(gameEditor)
 
 	return game, nil
 }
@@ -154,9 +162,15 @@ func (game *Game) Update(dt float32, inputs map[GameInput]bool) {
 		enemy.update(game, dt, inputs)
 	}
 
+	for _, worldBlock := range game.worldBlocks {
+		worldBlock.update(game, dt, inputs)
+	}
+
 	if !game.IsEditModeEnabled && game.player.pos.Y() < -10.0 {
 		game.GameOver()
 	}
+
+	game.editor.update(game, dt, inputs)
 }
 
 // Render renders the frame
@@ -190,6 +204,11 @@ func (game *Game) Render() {
 			panic(err)
 		}
 	}
+
+	// Render editor related items
+	if err := game.editor.render(game, viewMatrix); err != nil {
+		panic(err)
+	}
 }
 
 // OnViewPortChange recalculates the projection matrix after a viewport adjustment
@@ -211,87 +230,6 @@ func (game *Game) GameOver() {
 	for _, enemy := range game.enemies {
 		enemy.pos = enemy.start
 	}
-}
-
-// CreateWorldBlock editor function to create a new world block.
-func (game *Game) CreateWorldBlock(pos, dimensions, color [3]float32) uint32 {
-	newBlock := new(worldBlock)
-	newBlock.id = game.lastBlockID + 1 // NOTE: not thread safe...
-	game.lastBlockID = newBlock.id
-	game.worldBlocks[newBlock.id] = newBlock
-	game.UpdateWorldBlock(newBlock.id, pos, dimensions, color)
-
-	return newBlock.id
-}
-
-// UpdateWorldBlock editor function to update a existing world block
-func (game *Game) UpdateWorldBlock(id uint32, position, dimensions, color [3]float32) {
-	block := game.worldBlocks[id]
-	block.color = (mgl32.Vec3{color[0], color[1], color[2]}).Vec4(1.0)
-	block.scale = (mgl32.Vec3{dimensions[0], dimensions[1], dimensions[2]}).Mul(0.5)
-	block.pos = (mgl32.Vec3{position[0], position[1], position[2]}).Add(block.scale)
-}
-
-// DeleteWorldBlock editor function to delete a block
-func (game *Game) DeleteWorldBlock(id uint32) {
-	delete(game.worldBlocks, id)
-}
-
-// GetWorldBlockPosition get's the x,y,z coordinates (in that order) of right, bottom, back vertex of the block
-func (game *Game) GetWorldBlockPosition(id uint32) [3]float32 {
-	block := game.worldBlocks[id]
-	return block.pos.Add(block.scale.Mul(-1))
-}
-
-// GetWorldBlockDimensions get's the width, height, & length (in that order) of the block
-func (game *Game) GetWorldBlockDimensions(id uint32) [3]float32 {
-	return game.worldBlocks[id].scale.Mul(2)
-}
-
-// GetWorldBlockColor get's the rgb color (in that order) of the block
-func (game *Game) GetWorldBlockColor(id uint32) [3]float32 {
-	return game.worldBlocks[id].color.Vec3()
-}
-
-// CreateEnemy editor function to create a new world block.
-func (game *Game) CreateEnemy(pos, dimensions, color [3]float32) uint32 {
-	newBlock := new(enemy)
-	newBlock.id = game.lastBlockID + 1 // NOTE: not thread safe...
-	game.lastBlockID = newBlock.id
-	game.enemies[newBlock.id] = newBlock
-	game.UpdateEnemy(newBlock.id, pos, dimensions, color)
-
-	return newBlock.id
-}
-
-// UpdateEnemy editor function to update a existing world block
-func (game *Game) UpdateEnemy(id uint32, position, dimensions, color [3]float32) {
-	block := game.enemies[id]
-	block.color = (mgl32.Vec3{color[0], color[1], color[2]}).Vec4(1.0)
-	block.scale = (mgl32.Vec3{dimensions[0], dimensions[1], dimensions[2]}).Mul(0.5)
-	block.pos = (mgl32.Vec3{position[0], position[1], position[2]}).Add(block.scale)
-	block.start = block.pos
-}
-
-// DeleteEnemy editor function to delete a block
-func (game *Game) DeleteEnemy(id uint32) {
-	delete(game.enemies, id)
-}
-
-// GetEnemyPosition get's the x,y,z coordinates (in that order) of right, bottom, back vertex of the block
-func (game *Game) GetEnemyPosition(id uint32) [3]float32 {
-	block := game.enemies[id]
-	return block.pos.Add(block.scale.Mul(-1))
-}
-
-// GetEnemyDimensions get's the width, height, & length (in that order) of the block
-func (game *Game) GetEnemyDimensions(id uint32) [3]float32 {
-	return game.enemies[id].scale.Mul(2)
-}
-
-// GetEnemyColor get's the rgb color (in that order) of the block
-func (game *Game) GetEnemyColor(id uint32) [3]float32 {
-	return game.enemies[id].color.Vec3()
 }
 
 var blockVerticies = [...]float32{
