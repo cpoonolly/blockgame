@@ -54,6 +54,8 @@ func (enemy *enemy) update(game *Game, dt float32, inputs map[GameInput]bool) {
 
 		if checkForStaticOnStaticCollision(game.player, enemy) {
 			enemy.color = enemyColorHighlighted
+		} else {
+			enemy.color = enemyColorDefault
 		}
 
 		return
