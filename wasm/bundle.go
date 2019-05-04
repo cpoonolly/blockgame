@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 	"syscall/js"
 
 	"github.com/cpoonolly/blockgame/core"
@@ -167,6 +168,27 @@ func main() {
 		return nil
 	})
 
+	movePlayerTo := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		moveToX, errX := strconv.ParseFloat(gl.DocumentEl.Call("getElementById", "move-to-x").Get("value").String(), 32)
+		if errX != nil {
+			panic(errX)
+		}
+
+		moveToY, errY := strconv.ParseFloat(gl.DocumentEl.Call("getElementById", "move-to-y").Get("value").String(), 32)
+		if errY != nil {
+			panic(errY)
+		}
+
+		moveToZ, errZ := strconv.ParseFloat(gl.DocumentEl.Call("getElementById", "move-to-z").Get("value").String(), 32)
+		if errZ != nil {
+			panic(errZ)
+		}
+
+		game.MovePlayerToPos([3]float32{float32(moveToX), float32(moveToY), float32(moveToZ)})
+
+		return nil
+	})
+
 	defer renderFrame.Release()
 	defer onKeyDown.Release()
 	defer onKeyUp.Release()
@@ -180,6 +202,7 @@ func main() {
 	js.Global().Call("addEventListener", "resize", onCanvasResize)
 	js.Global().Set("exportGame", exportGame)
 	js.Global().Set("importGame", importGame)
+	js.Global().Set("movePlayerTo", movePlayerTo)
 
 	done := make(chan struct{}, 0)
 	<-done

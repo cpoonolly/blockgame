@@ -235,6 +235,10 @@ func (game *Game) GameOver() {
 	}
 }
 
+func (game *Game) MovePlayerToPos(pos [3]float32) {
+	game.player.pos = mgl32.Vec3(pos).Add(game.player.scale)
+}
+
 var blockVerticies = [...]float32{
 	// Front face
 	-1.0, -1.0, 1.0,

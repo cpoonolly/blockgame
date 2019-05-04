@@ -52,7 +52,18 @@
         z-index: 3000;
       }
 
-      #import-export-val {
+      .editor-move-to {
+        display: flex;
+        flex-wrap: wrap;
+      }
+
+      .move-to-coord {
+        width: 30%;
+        padding: 0 5px 10px 5px;
+      }
+
+      #import-export-val,
+      .move-to-coord-val {
         width: 100%;
         display: block;
         padding: 8px;
@@ -61,7 +72,8 @@
       }
 
       .export-btn,
-      .import-btn {
+      .import-btn,
+      .move-to-btn {
         background-color: #4CAF50; /* Green */
         border: none;
         color: white;
@@ -83,7 +95,24 @@
       <div id="container_editor_panel">
         <button class='export-btn' onclick='exportGame()'>Export</button>
         <button class='import-btn' onclick='importGame()'>Import</button>
-        <textarea id="import-export-val" rows="4"></textarea>
+        <textarea id="import-export-val" rows="30"></textarea>
+  
+        <h3>Move Player To:</h3>
+        <div class="editor-move-to">
+          <div class='move-to-coord'>
+            <label class='move-to-coord-label'>X</label>
+            <input id='move-to-x' class='move-to-coord-val' type='number' value="0.0" step='0.1'/>
+          </div>
+          <div class='move-to-coord'>
+            <label class='move-to-coord-label'>Y</label>
+            <input id='move-to-y' class='move-to-coord-val' type='number' value="0.0" step='0.1'/>
+          </div>
+          <div class='move-to-coord'>
+            <label class='move-to-coord-label'>Z</label>
+            <input id='move-to-z' class='move-to-coord-val' type='number' value="0.0" step='0.1'/>
+          </div>
+          <button class='move-to-btn' onclick='movePlayerTo()'>Move</button>
+        </div>
       </div>
     </div>
   </body>
