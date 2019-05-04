@@ -120,8 +120,8 @@ func NewGame(glCtx GlContext) (*Game, error) {
 	// create a camera
 	arcballCamera := new(arcballCamera)
 	arcballCamera.up = mgl32.Vec3{0.0, 1.0, 0.0}
-	arcballCamera.yaw = 2.0
-	arcballCamera.zoom = 5.0
+	arcballCamera.yaw = -45.0
+	arcballCamera.zoom = 1.0
 	game.camera = arcballCamera
 
 	// setup edit mode
@@ -140,7 +140,7 @@ func (game *Game) Update(dt float32, inputs map[GameInput]bool) {
 	if game.IsEditModeEnabled {
 		player := game.player
 		camera := game.camera.(*arcballCamera)
-		eyePos := camera.getEyePos()
+		eyePos := camera.eyePos
 		game.Log = fmt.Sprintf(
 			"FPS: %.2f\tCamera: (x:%.2f, y:%.2f, z:%.2f)\tPlayer: (x:%.2f, y:%.2f, z:%.2f)",
 			1000.0/dt,

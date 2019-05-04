@@ -80,6 +80,10 @@ func (player *player) update(game *Game, dt float32, inputs map[GameInput]bool) 
 	player.vel[2] = f32LimitBetween(player.vel[2], -1*maxVelocity, maxVelocity)
 
 	dPos := game.player.vel.Mul(dt / 1000)
+
+	camera := game.camera.(*arcballCamera)
+	dPos = mgl32.HomogRotate3DY(mgl32.DegToRad(180 + camera.yaw)).Mul4x1(dPos.Vec4(1.0)).Vec3()
+
 	if !game.IsEditModeEnabled {
 		for _, worldBlock := range game.worldBlocks {
 			if checkForDynamicOnStaticCollision(dPos, player, worldBlock) {
