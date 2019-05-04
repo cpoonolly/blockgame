@@ -84,29 +84,6 @@ func NewGame(glCtx GlContext) (*Game, error) {
 	var err error
 
 	game.OnViewPortChange()
-	game.modelViewMatrix = mgl32.Ident4()
-	game.normalMatrix = mgl32.Ident4()
-	game.color = mgl32.Vec4{1.0, 1.0, 1.0, 1.0}
-
-	game.blockShader, err = game.gl.NewShaderProgram(
-		blockVertShaderCode,
-		blockFragShaderCode,
-		map[string][]float32{
-			"pMatrix":    game.projMatrix[:],
-			"mvMatrix":   game.modelViewMatrix[:],
-			"normMatrix": game.normalMatrix[:],
-		},
-		map[string][]float32{"color": game.color[:]},
-	)
-
-	if err != nil {
-		return nil, err
-	}
-
-	game.blockMesh, err = game.gl.NewMesh(blockVerticies[:], blockNormals[:], blockIndicies[:])
-	if err != nil {
-		return nil, err
-	}
 
 	game.player = new(player)
 	game.player.scale = mgl32.Vec3{0.5, 0.5, 0.5}
@@ -123,6 +100,32 @@ func NewGame(glCtx GlContext) (*Game, error) {
 	arcballCamera.yaw = -45.0
 	arcballCamera.zoom = 1.0
 	game.camera = arcballCamera
+
+	// setup shaders/matrices/meshes
+	game.modelViewMatrix = mgl32.Ident4()
+	game.normalMatrix = mgl32.Ident4()
+	game.color = mgl32.Vec4{1.0, 1.0, 1.0, 1.0}
+
+	game.blockShader, err = game.gl.NewShaderProgram(
+		blockVertShaderCode,
+		blockFragShaderCode,
+		map[string][]float32{
+			"uMatP":    game.projMatrix[:],
+			"uMatMV":   game.modelViewMatrix[:],
+			"uMatNorm": game.normalMatrix[:],
+			"uColor":   game.color[:],
+			"uEyePos":  arcballCamera.eyePos[:],
+		},
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	game.blockMesh, err = game.gl.NewMesh(blockVerticies[:], blockNormals[:], blockIndicies[:])
+	if err != nil {
+		return nil, err
+	}
 
 	// setup edit mode
 	game.IsEditModeEnabled = true
@@ -330,36 +333,52 @@ var blockIndicies = [...]uint16{
 }
 
 var blockVertShaderCode = `
-	attribute vec3 position;
-	attribute vec3 normal;
+	precision highp float;
 
-	uniform mat4 pMatrix;
-	uniform mat4 mvMatrix;
-	uniform mat4 normMatrix;
-	uniform vec4 color;
+	attribute vec3 aPosition;
+	attribute vec3 aNormal;
 
-	varying highp vec3 vColor;
+	uniform mat4 uMatP;
+	uniform mat4 uMatMV;
+	uniform mat4 uMatNorm;
+
+	varying vec3 vPos;
+	varying vec3 vNorm;
 
 	void main(void) {
-		vec4 vertPos = mvMatrix * vec4(position, 1.);
-		gl_Position = pMatrix * vertPos;
-
-		vec3 ambient = 0.4 * color.rgb;
-
-		vec3 lightPos = vec3(1.0, 1.0, 1.0);
-		vec3 transformedLight = normalize(lightPos - vertPos.xyz);
-		vec3 transformedNorm = normalize(vec3(normMatrix * vec4(normal, 0.0)));
-		float lambert = max(dot(transformedNorm, transformedLight), 0.0);
-		vec3 diffuse = lambert * 0.7 * color.rgb;
-
-		vColor = ambient + diffuse;
+		vec4 pos = uMatMV * vec4(aPosition, 1.);
+		gl_Position = uMatP * pos;
+		vPos = pos.xyz;
+		vNorm = vec3(uMatNorm * vec4(aNormal, 0.0));
 	}	
 `
 
 var blockFragShaderCode = `
-	varying highp vec3 vColor;
+	precision highp float;
+
+	uniform vec4 uColor;
+	uniform vec3 uEyePos;
+
+	varying vec3 vPos;
+	varying vec3 vNorm;
 
 	void main(void) {
-		gl_FragColor = vec4(vColor, 1.);
+		vec3 ambient = 0.4 * uColor.rgb;
+
+		vec3 lightPos = vec3(1.0, 1.0, 1.0);
+		vec3 L = normalize(lightPos - vPos.xyz);
+		vec3 N = normalize(vNorm);
+		float lambert = max(dot(N, L), 0.0);
+		vec3 diffuse = lambert * 0.7 * uColor.rgb;
+
+		vec3 specular = vec3(0.0, 0.0, 0.0);
+		if (lambert > 0.0) {
+			float shininess = 50.0;
+			vec3 R = reflect(-L, N);
+			vec3 V = normalize(uEyePos);
+			specular = pow(max(dot(R, V), 0.0), shininess) * uColor.rgb;
+		}
+
+		gl_FragColor = vec4(ambient + diffuse + specular, 1.);
 	}
 `

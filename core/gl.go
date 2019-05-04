@@ -14,7 +14,7 @@ type GlContext interface {
 	Enable(string)
 	Disable(string)
 	ClearScreen(float32, float32, float32) error
-	NewShaderProgram(string, string, map[string][]float32, map[string][]float32) (ShaderProgram, error)
+	NewShaderProgram(string, string, map[string][]float32) (ShaderProgram, error)
 	NewMesh([]float32, []float32, []uint16) (Mesh, error)
 	RenderTriangles(Mesh, ShaderProgram) error
 	RenderLines(Mesh, ShaderProgram) error

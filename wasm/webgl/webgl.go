@@ -2,8 +2,9 @@ package webgl
 
 import (
 	"fmt"
-	"github.com/cpoonolly/blockgame/core"
 	"syscall/js"
+
+	"github.com/cpoonolly/blockgame/core"
 )
 
 // Context a handle to canvas webgl
@@ -146,16 +147,20 @@ func (gl *Context) render(coreMesh core.Mesh, coreProgram core.ShaderProgram, re
 
 	gl.ctx.Call("useProgram", program.programID)
 
-	// bind all mat4f uniforms
-	for uniformName, uniformVal := range program.uniformsMat4f {
+	// bind all uniforms
+	for uniformName, uniformVal := range program.uniforms {
 		uniformLoc := gl.ctx.Call("getUniformLocation", program.programID, uniformName)
-		gl.ctx.Call("uniformMatrix4fv", uniformLoc, false, uniformVal)
-	}
 
-	// bind all vec4f uniforms
-	for uniformName, uniformVal := range program.uniformsVec4f {
-		uniformLoc := gl.ctx.Call("getUniformLocation", program.programID, uniformName)
-		gl.ctx.Call("uniform4fv", uniformLoc, uniformVal)
+		switch uniformSize := uniformVal.Length(); uniformSize {
+		case 16:
+			gl.ctx.Call("uniformMatrix4fv", uniformLoc, false, uniformVal)
+		case 4:
+			gl.ctx.Call("uniform4fv", uniformLoc, uniformVal)
+		case 3:
+			gl.ctx.Call("uniform3fv", uniformLoc, uniformVal)
+		default:
+			return fmt.Errorf("Unsupported uniform: %s", uniformName)
+		}
 	}
 
 	// bind elements
@@ -183,16 +188,14 @@ type ShaderProgram struct {
 	fragShaderID js.Value
 	programID    js.Value
 
-	uniformsMat4f map[string]js.TypedArray
-	uniformsVec4f map[string]js.TypedArray
+	uniforms map[string]js.TypedArray
 }
 
 // NewShaderProgram links, compiles & registers a shader program using the given vertex & fragment shader
 func (gl *Context) NewShaderProgram(
 	vertCode string,
 	fragCode string,
-	uniformsMat4f map[string][]float32,
-	uniformsVec4f map[string][]float32,
+	uniforms map[string][]float32,
 ) (core.ShaderProgram, error) {
 
 	// TODO should defer gl.ctx.Call("deleteShader", vertShaderID) on failure
@@ -224,12 +227,12 @@ func (gl *Context) NewShaderProgram(
 		return nil, fmt.Errorf("failed to generate shader progam: %s", gl.ctx.Call("getProgramInfoLog", programID).String())
 	}
 
-	if gl.ctx.Call("getAttribLocation", programID, "position").Int() != 0 {
-		return nil, fmt.Errorf("all vertex shaders MUST have 'position' as it's first attribute")
+	if gl.ctx.Call("getAttribLocation", programID, "aPosition").Int() != 0 {
+		return nil, fmt.Errorf("all vertex shaders MUST have 'aPosition' as it's first attribute")
 	}
 
-	if gl.ctx.Call("getAttribLocation", programID, "normal").Int() != 1 {
-		return nil, fmt.Errorf("all vertex shaders MUST have 'normal' as it's second attribute")
+	if gl.ctx.Call("getAttribLocation", programID, "aNormal").Int() != 1 {
+		return nil, fmt.Errorf("all vertex shaders MUST have 'aNormal' as it's second attribute")
 	}
 
 	program := new(ShaderProgram)
@@ -238,23 +241,14 @@ func (gl *Context) NewShaderProgram(
 	program.fragShaderID = fragShaderID
 	program.programID = programID
 
-	program.uniformsMat4f = make(map[string]js.TypedArray)
-	program.uniformsVec4f = make(map[string]js.TypedArray)
+	program.uniforms = make(map[string]js.TypedArray)
 
-	for uniformName, uniformVal := range uniformsMat4f {
+	for uniformName, uniformVal := range uniforms {
 		if !gl.ctx.Call("getUniformLocation", programID, uniformName).Truthy() {
 			return nil, fmt.Errorf("invalid uniform '%s' passed to shader", uniformName)
 		}
 
-		program.uniformsMat4f[uniformName] = js.TypedArrayOf(uniformVal)
-	}
-
-	for uniformName, uniformVal := range uniformsVec4f {
-		if !gl.ctx.Call("getUniformLocation", programID, uniformName).Truthy() {
-			return nil, fmt.Errorf("invalid uniform '%s' passed to shader", uniformName)
-		}
-
-		program.uniformsVec4f[uniformName] = js.TypedArrayOf(uniformVal)
+		program.uniforms[uniformName] = js.TypedArrayOf(uniformVal)
 	}
 
 	return program, nil
