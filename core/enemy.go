@@ -106,8 +106,10 @@ func (enemy *enemy) render(game *Game, viewMatrix mgl32.Mat4) error {
 	game.modelViewMatrix = viewMatrix.Mul4(modelMatrix)
 	game.normalMatrix = game.modelViewMatrix.Inv().Transpose()
 	game.color = enemy.color
+	game.material = mgl32.Vec4{0.4, 0.7, 1.0, 50.0}
+	game.lightPos = game.player.pos
 
-	if err := game.gl.RenderTriangles(game.blockMesh, game.blockShader); err != nil {
+	if err := game.gl.RenderTriangles(game.blockMesh, game.phongShader); err != nil {
 		return err
 	}
 

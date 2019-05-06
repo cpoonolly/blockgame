@@ -55,8 +55,15 @@ func (worldBlock *worldBlock) render(game *Game, viewMatrix mgl32.Mat4) error {
 	game.modelViewMatrix = viewMatrix.Mul4(modelMatrix)
 	game.normalMatrix = game.modelViewMatrix.Inv().Transpose()
 	game.color = worldBlock.color
+	game.material = mgl32.Vec4{0.1, 0.6, 0.0, 20.0}
+	game.lightPos = viewMatrix.Mul4x1(game.player.pos.Vec4(1.0)).Vec3()
 
-	if err := game.gl.RenderTriangles(game.blockMesh, game.blockShader); err != nil {
+	shader := game.gouraudShader
+	if worldBlock.scale.X() > 3.0 || worldBlock.scale.Y() > 3.0 || worldBlock.scale.Z() > 3.0 {
+		shader = game.phongShader
+	}
+
+	if err := game.gl.RenderTriangles(game.blockMesh, shader); err != nil {
 		return err
 	}
 

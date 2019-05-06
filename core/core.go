@@ -56,14 +56,18 @@ const gravityAcceleration float32 = 1
 
 // Game represents a game
 type Game struct {
-	gl          GlContext
-	blockShader ShaderProgram
-	blockMesh   Mesh
+	gl            GlContext
+	phongShader   ShaderProgram
+	gouraudShader ShaderProgram
+	blockMesh     Mesh
 
 	projMatrix      mgl32.Mat4
 	modelViewMatrix mgl32.Mat4
 	normalMatrix    mgl32.Mat4
-	color           mgl32.Vec4
+
+	color    mgl32.Vec4
+	material mgl32.Vec4 // vector of [Ka (ambient constant), Kd (diffuse constant), Ks (specular constant), shininess (shininess constant)] for the material
+	lightPos mgl32.Vec3
 
 	player      *player
 	enemies     []*enemy
@@ -106,18 +110,22 @@ func NewGame(glCtx GlContext) (*Game, error) {
 	game.normalMatrix = mgl32.Ident4()
 	game.color = mgl32.Vec4{1.0, 1.0, 1.0, 1.0}
 
-	game.blockShader, err = game.gl.NewShaderProgram(
-		blockVertShaderCode,
-		blockFragShaderCode,
-		map[string][]float32{
-			"uMatP":    game.projMatrix[:],
-			"uMatMV":   game.modelViewMatrix[:],
-			"uMatNorm": game.normalMatrix[:],
-			"uColor":   game.color[:],
-			"uEyePos":  arcballCamera.eyePos[:],
-		},
-	)
+	uniforms := map[string][]float32{
+		"uMatP":     game.projMatrix[:],
+		"uMatMV":    game.modelViewMatrix[:],
+		"uMatNorm":  game.normalMatrix[:],
+		"uColor":    game.color[:],
+		"uMaterial": game.material[:],
+		"uEyePos":   arcballCamera.eyePos[:],
+		"uLightPos": game.lightPos[:],
+	}
 
+	game.phongShader, err = game.gl.NewShaderProgram(phongVertShaderCode, phongFragShaderCode, uniforms)
+	if err != nil {
+		return nil, err
+	}
+
+	game.gouraudShader, err = game.gl.NewShaderProgram(gouraudVertShaderCode, gouraudFragShaderCode, uniforms)
 	if err != nil {
 		return nil, err
 	}
@@ -336,7 +344,7 @@ var blockIndicies = [...]uint16{
 	20, 22, 23,
 }
 
-var blockVertShaderCode = `
+var phongVertShaderCode = `
 	precision highp float;
 
 	attribute vec3 aPosition;
@@ -357,32 +365,97 @@ var blockVertShaderCode = `
 	}	
 `
 
-var blockFragShaderCode = `
+var phongFragShaderCode = `
 	precision highp float;
 
 	uniform vec4 uColor;
+	uniform vec4 uMaterial;
 	uniform vec3 uEyePos;
+	uniform vec3 uLightPos;
 
 	varying vec3 vPos;
 	varying vec3 vNorm;
 
 	void main(void) {
-		vec3 ambient = 0.4 * uColor.rgb;
+		float ka = uMaterial.x;
+		float kd = uMaterial.y;
+		float ks = uMaterial.z;
+		float shininess = uMaterial.w;
 
-		vec3 lightPos = vec3(1.0, 1.0, 1.0);
-		vec3 L = normalize(lightPos - vPos.xyz);
+		vec3 ambient = ka * uColor.rgb;
+		
+		float lightDist = length(uLightPos - vPos);
+		vec3 L = normalize(uLightPos - vPos);
 		vec3 N = normalize(vNorm);
 		float lambert = max(dot(N, L), 0.0);
-		vec3 diffuse = lambert * 0.7 * uColor.rgb;
+		vec3 diffuse = lambert * kd * uColor.rgb / lightDist;
 
 		vec3 specular = vec3(0.0, 0.0, 0.0);
 		if (lambert > 0.0) {
-			float shininess = 50.0;
 			vec3 R = reflect(-L, N);
 			vec3 V = normalize(uEyePos);
-			specular = pow(max(dot(R, V), 0.0), shininess) * uColor.rgb;
+			specular = pow(max(dot(R, V), 0.0), shininess) * ks * uColor.rgb;
 		}
 
 		gl_FragColor = vec4(ambient + diffuse + specular, 1.);
+	}
+`
+
+var gouraudVertShaderCode = `
+	precision highp float;
+
+	attribute vec3 aPosition;
+	attribute vec3 aNormal;
+
+	uniform mat4 uMatP;
+	uniform mat4 uMatMV;
+	uniform mat4 uMatNorm;
+
+	uniform vec4 uColor;
+	uniform vec4 uMaterial;
+	uniform vec3 uEyePos;
+	uniform vec3 uLightPos;
+
+	varying vec3 vColor;
+
+	void main(void) {
+		vec4 pos = uMatMV * vec4(aPosition, 1.);
+		vec4 norm = uMatNorm * vec4(aNormal, 0.0);
+		gl_Position = uMatP * pos;
+		
+		float ka = uMaterial.x;
+		float kd = uMaterial.y;
+		float ks = uMaterial.z;
+		float shininess = uMaterial.w;
+
+		float lightRadius = 100.0;
+		float lightDist = distance(uLightPos, pos.xyz);
+		float lightAttn = clamp(1.0 - (lightDist*lightDist) / (lightRadius*lightRadius), 0.0, 1.0);
+
+		vec3 ambient = ka * uColor.rgb;
+
+		vec3 L = normalize(uLightPos - pos.xyz);
+		vec3 N = normalize(norm.xyz);
+		float lambert = max(dot(N, L), 0.0);
+		vec3 diffuse = lightAttn * lambert * kd * uColor.rgb;
+
+		vec3 specular = vec3(0.0, 0.0, 0.0);
+		if (lambert > 0.0) {
+			vec3 R = reflect(-L, N);
+			vec3 V = normalize(uEyePos);
+			specular = pow(max(dot(R, V), 0.0), shininess) * ks * uColor.rgb;
+		}
+
+		vColor = ambient + diffuse + specular;
+	}	
+`
+
+var gouraudFragShaderCode = `
+	precision highp float;
+
+	varying vec3 vColor;
+
+	void main(void) {
+		gl_FragColor = vec4(vColor, 1.);
 	}
 `

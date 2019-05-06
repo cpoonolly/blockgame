@@ -109,8 +109,10 @@ func (player *player) render(game *Game, viewMatrix mgl32.Mat4) error {
 	game.modelViewMatrix = viewMatrix.Mul4(modelMatrix)
 	game.normalMatrix = game.modelViewMatrix.Inv().Transpose()
 	game.color = playerColor
+	game.material = mgl32.Vec4{0.4, 0.7, 1.0, 50.0}
+	game.lightPos = viewMatrix.Mul4x1(game.player.pos.Add(mgl32.Vec3{0.0, 2.0, 0.0}).Vec4(1.0)).Vec3()
 
-	if err := game.gl.RenderTriangles(game.blockMesh, game.blockShader); err != nil {
+	if err := game.gl.RenderTriangles(game.blockMesh, game.phongShader); err != nil {
 		return err
 	}
 
