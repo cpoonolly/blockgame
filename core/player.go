@@ -11,9 +11,10 @@ const playerAcceleration float32 = 1
 var playerColor = mgl32.Vec4{0.3, 0.5, 1.0, 1.0}
 
 type player struct {
-	pos   mgl32.Vec3
-	scale mgl32.Vec3
-	vel   mgl32.Vec3
+	pos            mgl32.Vec3
+	scale          mgl32.Vec3
+	vel            mgl32.Vec3
+	jumpAnimTStart float32
 }
 
 func (player *player) velocity() mgl32.Vec3 {
@@ -64,6 +65,7 @@ func (player *player) update(game *Game, dt float32, inputs map[GameInput]bool) 
 
 	if !game.IsEditModeEnabled {
 		dvy = -1 * gravityAcceleration
+
 	} else {
 		if inputs[GameInputEditModeMoveUp] {
 			dvy = playerAcceleration

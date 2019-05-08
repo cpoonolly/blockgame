@@ -18,6 +18,8 @@ const (
 	GameInputPlayerMoveLeft
 	// GameInputPlayerMoveRight input to move the player right
 	GameInputPlayerMoveRight
+	// GameInputPlayerJump input to have the player jump
+	GameInputPlayerJump
 	// GameInputCameraZoomIn input to zoom camera in
 	GameInputCameraZoomIn
 	// GameInputCameraZoomOut input to zoom camera out
