@@ -68,6 +68,12 @@ func main() {
 	var lastRenderTime float32
 	var renderFrame js.Func
 	renderFrame = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		// if game is over invoke call back and don't request another animation frame
+		if game.IsGameOver {
+			js.Global().Call("onGameOver")
+			return nil
+		}
+
 		now := float32(args[0].Float())
 		dt := now - lastRenderTime
 		lastRenderTime = now

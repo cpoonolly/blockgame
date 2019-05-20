@@ -8,6 +8,14 @@
         go.run(result.instance);
 			});
 
+      function onGameOver() {
+        alert(`
+          GAME OVER!
+
+          (refresh to try again)
+        `);
+      }
+
       alert(`
         Controls:
           - Arrow Keys: Move Player
@@ -18,7 +26,9 @@
           1. Get as high up as you can!
           2. Avoid the red square!
           3. Don't fall!
-      `)
+
+        *Can enter "Edit Mode" by pressing "Q"
+      `);
     </script>
     <style>
       body, pre {

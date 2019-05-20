@@ -79,6 +79,7 @@ type Game struct {
 	editor      *gameEditor
 
 	IsEditModeEnabled bool
+	IsGameOver        bool
 
 	Log string
 }
@@ -147,6 +148,10 @@ func NewGame(glCtx GlContext) (*Game, error) {
 
 // Update updates the game models
 func (game *Game) Update(dt float32, inputs map[GameInput]bool) {
+	if game.IsGameOver {
+		return
+	}
+
 	if inputs[GameInputEditModeToggle] {
 		game.IsEditModeEnabled = !game.IsEditModeEnabled
 	}
@@ -182,8 +187,18 @@ func (game *Game) Update(dt float32, inputs map[GameInput]bool) {
 		worldBlock.update(game, dt, inputs)
 	}
 
-	if !game.IsEditModeEnabled && game.player.pos.Y() < -10.0 {
-		game.GameOver()
+	if !game.IsEditModeEnabled {
+		if game.player.pos.Y() < -10.0 {
+			game.IsGameOver = true
+			return
+		}
+
+		for _, enemy := range game.enemies {
+			if checkForStaticOnStaticCollision(game.player, enemy) {
+				game.IsGameOver = true
+				return
+			}
+		}
 	}
 
 	game.editor.update(game, dt, inputs)
@@ -236,16 +251,6 @@ func (game *Game) OnViewPortChange() {
 	aspectRatio := viewportWidth / viewportHeight
 
 	game.projMatrix = mgl32.Perspective(mgl32.DegToRad(45.0), aspectRatio, 1, 50.0)
-}
-
-// GameOver the game is over
-func (game *Game) GameOver() {
-	// GAME OVER
-	game.player.pos = mgl32.Vec3{0, 0, 0}
-
-	for _, enemy := range game.enemies {
-		enemy.pos = enemy.start
-	}
 }
 
 func (game *Game) MovePlayerToPos(pos [3]float32) {
