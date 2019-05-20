@@ -1,6 +1,8 @@
 package core
 
 import (
+	"fmt"
+
 	"github.com/go-gl/mathgl/mgl32"
 )
 
@@ -54,6 +56,7 @@ func (enemy *enemy) update(game *Game, dt float32, inputs map[GameInput]bool) {
 
 		if checkForStaticOnStaticCollision(game.player, enemy) {
 			enemy.color = enemyColorHighlighted
+			game.Log += fmt.Sprintf("<br/>Enemy: (x: %.2f\ty: %.2f\tz: %.2f)", enemy.pos.X(), enemy.pos.Y(), enemy.pos.Z())
 		} else {
 			enemy.color = enemyColorDefault
 		}

@@ -7,6 +7,18 @@
 			WebAssembly.instantiateStreaming(fetch("bundle.wasm"), go.importObject).then((result) => {
         go.run(result.instance);
 			});
+
+      alert(`
+        Controls:
+          - Arrow Keys: Move Player
+          - Ctrl + Arrow Keys: Move Camera
+          - Space: Jump
+        
+        Rules:
+          1. Get as high up as you can!
+          2. Avoid the red square!
+          3. Don't fall!
+      `)
     </script>
     <style>
       body, pre {
@@ -87,7 +99,7 @@
     </style>
 	</head>
 	<body>
-    <div id="container_main" class="edit-mode-enabled">
+    <div id="container_main">
       <div id="container_canvas">
         <p id="game_log"></p>
         <canvas id="canvas_main"></canvas>

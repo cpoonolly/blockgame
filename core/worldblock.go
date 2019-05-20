@@ -1,6 +1,8 @@
 package core
 
 import (
+	"fmt"
+
 	"github.com/go-gl/mathgl/mgl32"
 )
 
@@ -40,6 +42,7 @@ func (worldBlock *worldBlock) back() float32 {
 func (worldBlock *worldBlock) update(game *Game, dt float32, inputs map[GameInput]bool) {
 	if game.IsEditModeEnabled && checkForStaticOnStaticCollision(game.player, worldBlock) {
 		worldBlock.color = worldBlockColorHighlighted
+		game.Log += fmt.Sprintf("<br/>World: (x: %.2f\ty: %.2f\tz: %.2f)", worldBlock.pos.X(), worldBlock.pos.Y(), worldBlock.pos.Z())
 	} else {
 		worldBlock.color = worldBlockColorDefault
 	}
@@ -58,10 +61,13 @@ func (worldBlock *worldBlock) render(game *Game, viewMatrix mgl32.Mat4) error {
 	game.material = mgl32.Vec4{0.1, 0.6, 0.0, 20.0}
 	game.lightPos = viewMatrix.Mul4x1(game.player.pos.Vec4(1.0)).Vec3()
 
-	shader := game.gouraudShader
-	if worldBlock.scale.X() > 3.0 || worldBlock.scale.Y() > 3.0 || worldBlock.scale.Z() > 3.0 {
-		shader = game.phongShader
-	}
+	// just always use phong...
+	shader := game.phongShader
+
+	// shader := game.gouraudShader
+	// if worldBlock.scale.X() > 3.0 || worldBlock.scale.Y() > 3.0 || worldBlock.scale.Z() > 3.0 {
+	// 	shader = game.phongShader
+	// }
 
 	if err := game.gl.RenderTriangles(game.blockMesh, shader); err != nil {
 		return err

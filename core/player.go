@@ -78,10 +78,15 @@ func (player *player) update(game *Game, dt float32, inputs map[GameInput]bool) 
 
 	player.vel = player.vel.Add(mgl32.Vec3{dvx, dvy, dvz})
 	player.vel[0] = f32LimitBetween(player.vel[0], -1*maxVelocity, maxVelocity)
-	player.vel[1] = f32LimitBetween(player.vel[1], -1*maxVelocity, maxVelocity)
+	player.vel[1] = f32Max(player.vel[1], -1*terminalVelocity) // terminal velocity
 	player.vel[2] = f32LimitBetween(player.vel[2], -1*maxVelocity, maxVelocity)
 
+	if game.IsEditModeEnabled {
+		player.vel[1] = f32LimitBetween(player.vel[1], -1*maxVelocity, maxVelocity) // editor mode just uses regular max velocity
+	}
+
 	dPos := game.player.vel.Mul(dt / 1000)
+	dPosOriginal := dPos
 
 	camera := game.camera.(*arcballCamera)
 	dPos = mgl32.HomogRotate3DY(mgl32.DegToRad(180 + camera.yaw)).Mul4x1(dPos.Vec4(1.0)).Vec3()
@@ -96,8 +101,13 @@ func (player *player) update(game *Game, dt float32, inputs map[GameInput]bool) 
 
 	player.pos = player.pos.Add(dPos)
 
+	playerCanJump := (dPosOriginal.Y() < 0 && dPos.Y() == 0)
+	if inputs[GameInputPlayerJump] && playerCanJump {
+		player.vel[1] = 20 * gravityAcceleration
+	}
+
 	if game.IsEditModeEnabled {
-		game.Log += fmt.Sprintf("<br/>Player Velocity: (vx: %.2f\tvy: %.2f\tvz: %.2f)\n", player.vel.X(), player.vel.Y(), player.vel.Z())
+		game.Log += fmt.Sprintf("<br/>Player Velocity: (vx: %.2f\tvy: %.2f\tvz: %.2f)", player.vel.X(), player.vel.Y(), player.vel.Z())
 	}
 }
 

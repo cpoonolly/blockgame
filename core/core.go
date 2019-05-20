@@ -52,6 +52,7 @@ type gameRenderable interface {
 
 // maximum velocity for a moving object
 const maxVelocity float32 = 10
+const terminalVelocity float32 = 20
 const dampening float32 = 1
 
 const gravityAcceleration float32 = 1
@@ -138,7 +139,7 @@ func NewGame(glCtx GlContext) (*Game, error) {
 	}
 
 	// setup edit mode
-	game.IsEditModeEnabled = true
+	game.IsEditModeEnabled = false
 	game.editor = new(gameEditor)
 
 	return game, nil
@@ -155,7 +156,7 @@ func (game *Game) Update(dt float32, inputs map[GameInput]bool) {
 		camera := game.camera.(*arcballCamera)
 		eyePos := camera.eyePos
 		game.Log = fmt.Sprintf(
-			"FPS: %.2f\tCamera: (x:%.2f, y:%.2f, z:%.2f)\tPlayer: (x:%.2f, y:%.2f, z:%.2f)",
+			"FPS: %.2f<br/>Camera: (x:%.2f, y:%.2f, z:%.2f)<br/>Player: (x:%.2f, y:%.2f, z:%.2f)<br/>#WorldBlocks: %d<br/>#Enemies: %d",
 			1000.0/dt,
 			eyePos.X(),
 			eyePos.Y(),
@@ -163,6 +164,8 @@ func (game *Game) Update(dt float32, inputs map[GameInput]bool) {
 			player.pos.X(),
 			player.pos.Y(),
 			player.pos.Z(),
+			len(game.worldBlocks),
+			len(game.enemies),
 		)
 	} else {
 		game.Log = ""
@@ -386,7 +389,7 @@ var phongFragShaderCode = `
 
 		vec3 ambient = ka * uColor.rgb;
 		
-		float lightDist = length(uLightPos - vPos);
+		float lightDist = length(uLightPos - vPos) * 0.8;
 		vec3 L = normalize(uLightPos - vPos);
 		vec3 N = normalize(vNorm);
 		float lambert = max(dot(N, L), 0.0);

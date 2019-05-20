@@ -31,6 +31,7 @@ type Context struct {
 		unsignedShort      js.Value
 		triangles          js.Value
 		lines              js.Value
+		cullFace           js.Value
 	}
 }
 
@@ -145,6 +146,7 @@ func (gl *Context) render(coreMesh core.Mesh, coreProgram core.ShaderProgram, re
 		return fmt.Errorf("invalid shader passed to this gl context. must be a webgl.ShaderProgram")
 	}
 
+	gl.Enable("GL_CULL_FACE")
 	gl.ctx.Call("useProgram", program.programID)
 
 	// bind all uniforms
