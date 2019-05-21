@@ -277,7 +277,7 @@ func (gl *Context) NewMesh(verticies []float32, normals []float32, elements []ui
 	gl.ctx.Call("bindBuffer", gl.constants.arrayBuffer, vertBufferID)
 	gl.ctx.Call("bufferData", gl.constants.arrayBuffer, verticiesTyped, gl.constants.staticDraw)
 
-	normalsTyped := js.TypedArrayOf(verticies)
+	normalsTyped := js.TypedArrayOf(normals)
 	normBufferID := gl.ctx.Call("createBuffer", gl.constants.arrayBuffer)
 	gl.ctx.Call("bindBuffer", gl.constants.arrayBuffer, normBufferID)
 	gl.ctx.Call("bufferData", gl.constants.arrayBuffer, normalsTyped, gl.constants.staticDraw)
