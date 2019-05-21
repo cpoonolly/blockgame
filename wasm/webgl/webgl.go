@@ -169,13 +169,15 @@ func (gl *Context) render(coreMesh core.Mesh, coreProgram core.ShaderProgram, re
 	gl.ctx.Call("bindBuffer", gl.constants.elementArrayBuffer, mesh.elementsBufferID)
 
 	// bind position attribute
+	posAttrLoc := gl.ctx.Call("getAttribLocation", program.programID, "aPosition").Int()
 	gl.ctx.Call("bindBuffer", gl.constants.arrayBuffer, mesh.vertexBufferID)
-	gl.ctx.Call("vertexAttribPointer", 0, 3, gl.constants.float, false, 0, 0)
+	gl.ctx.Call("vertexAttribPointer", posAttrLoc, 3, gl.constants.float, false, 0, 0)
 	gl.ctx.Call("enableVertexAttribArray", 0)
 
 	// bind normal attribute
+	normAttrLoc := gl.ctx.Call("getAttribLocation", program.programID, "aNormal").Int()
 	gl.ctx.Call("bindBuffer", gl.constants.arrayBuffer, mesh.normalBufferID)
-	gl.ctx.Call("vertexAttribPointer", 1, 3, gl.constants.float, false, 0, 0)
+	gl.ctx.Call("vertexAttribPointer", normAttrLoc, 3, gl.constants.float, false, 0, 0)
 	gl.ctx.Call("enableVertexAttribArray", 1)
 
 	gl.ctx.Call("drawElements", renderConst, mesh.size, gl.constants.unsignedShort, 0)
@@ -229,12 +231,12 @@ func (gl *Context) NewShaderProgram(
 		return nil, fmt.Errorf("failed to generate shader progam: %s", gl.ctx.Call("getProgramInfoLog", programID).String())
 	}
 
-	if gl.ctx.Call("getAttribLocation", programID, "aPosition").Int() != 0 {
-		return nil, fmt.Errorf("all vertex shaders MUST have 'aPosition' as it's first attribute")
+	if gl.ctx.Call("getAttribLocation", programID, "aPosition").Int() < 0 {
+		return nil, fmt.Errorf("all vertex shaders MUST have 'aPosition' as an attribute")
 	}
 
-	if gl.ctx.Call("getAttribLocation", programID, "aNormal").Int() != 1 {
-		return nil, fmt.Errorf("all vertex shaders MUST have 'aNormal' as it's second attribute")
+	if gl.ctx.Call("getAttribLocation", programID, "aNormal").Int() < 0 {
+		return nil, fmt.Errorf("all vertex shaders MUST have 'aNormal' as an attribute")
 	}
 
 	program := new(ShaderProgram)
