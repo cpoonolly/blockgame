@@ -92,7 +92,7 @@ func main() {
 			core.GameInputEditModeMoveDown:  false,
 		}
 
-		if isKeyDownMap["ControlLeft"] {
+		if isKeyDownMap["ShiftLeft"] {
 			if isKeyDownMap["ArrowUp"] {
 				inputMap[core.GameInputCameraZoomIn] = true
 			}
