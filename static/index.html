@@ -9,11 +9,19 @@
 			});
 
       function onGameOver() {
-        alert(`
-          GAME OVER!
+        if (confirm(`
+            GAME OVER!
 
-          (refresh to try again)
-        `);
+            Would you like to play again?
+            `)) {
+            location.reload();
+        } else {
+            alert(`
+            GAME OVER!
+
+            (refresh to try again)
+            `);
+        }
       }
 
       alert(`
